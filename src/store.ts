@@ -27,6 +27,7 @@ export type EventKind =
   | "signal" // a cheap structured state-change signal (data: {ref, value})
   | "message" // a directed note (data: {to?, text})
   | "conflict" // a detected or manually declared conflict (data: {ref, a, b})
+  | "resolution" // a recorded conflict resolution (data: {ref, decision})
   | "digest"; // a sync-round summary (data: {digest, replacedSeq?})
 
 export interface BulletinEvent {
@@ -72,13 +73,22 @@ function statePath(root: string): string {
   return path.join(root, "state.json");
 }
 
-/** Atomic append via O_APPEND; seq is derived from current line count. */
+function watermarksPath(root: string): string {
+  return path.join(root, "watermarks.json");
+}
+
+function seqPath(root: string): string {
+  return path.join(root, "seq.json");
+}
+
+/** Atomic append via O_APPEND; seq from the high-watermark file (survives compaction). */
 export function postEvent(team: string, kind: EventKind, from: string, data: Record<string, unknown>): BulletinEvent {
   const root = bulletinRoot(team);
   const eventsFile = eventsPath(root);
-  const seq = nextSeq(eventsFile);
+  const seq = nextSeq(eventsFile, root);
   const event: BulletinEvent = { seq, ts: new Date().toISOString(), kind, from, data };
   fs.appendFileSync(eventsFile, JSON.stringify(event) + "\n", { encoding: "utf8", flag: "a" });
+  fs.writeFileSync(seqPath(root), JSON.stringify({ last: seq }) + "\n", { encoding: "utf8" });
   return event;
 }
 
@@ -125,6 +135,34 @@ export function readState(team: string): DigestState | null {
   }
 }
 
+/**
+ * Read watermarks: the last event seq each agent has seen (cheap "what
+ * have I read" cursor, per agent). 0 = nothing read yet. This is the
+ * per-agent observation cursor the protocol needs so bulletin_read can
+ * return only NEW events without an LLM call.
+ */
+export function readWatermark(team: string, agent: string): number {
+  const root = bulletinRoot(team);
+  const file = watermarksPath(root);
+  if (!fs.existsSync(file)) return 0;
+  try {
+    const w = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, number>;
+    return w[agent] ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function markRead(team: string, agent: string, seq: number): void {
+  const root = bulletinRoot(team);
+  const file = watermarksPath(root);
+  const w: Record<string, number> = fs.existsSync(file)
+    ? (JSON.parse(fs.readFileSync(file, "utf8") || "{}") as Record<string, number>)
+    : {};
+  w[agent] = seq;
+  fs.writeFileSync(file, JSON.stringify(w, null, 2) + "\n", { encoding: "utf8" });
+}
+
 export function status(team: string): BulletinStatus {
   const root = bulletinRoot(team);
   const eventsFile = eventsPath(root);
@@ -143,6 +181,9 @@ export function status(team: string): BulletinStatus {
  */
 export function findConflictsSince(team: string, sinceSeq: number): Array<{ ref: string; a: unknown; b: unknown; seqs: [number, number] }> {
   const events = readEvents(team, { sinceSeq });
+  const resolutions = events
+    .filter((e) => e.kind === "resolution" && e.data.ref)
+    .map((e) => ({ ref: e.data.ref as string, seq: e.seq }));
   const byRef = new Map<string, { value: unknown; seq: number }>();
   const conflicts: Array<{ ref: string; a: unknown; b: unknown; seqs: [number, number] }> = [];
   for (const e of events) {
@@ -150,6 +191,8 @@ export function findConflictsSince(team: string, sinceSeq: number): Array<{ ref:
     const ref = e.data.ref as string | undefined;
     const value = e.data.value;
     if (!ref) continue;
+    // A later recorded resolution settles this ref — don't re-flag it.
+    if (resolutions.some((r) => r.ref === ref && r.seq > e.seq)) continue;
     if (byRef.has(ref)) {
       const prev = byRef.get(ref)!;
       if (JSON.stringify(prev.value) !== JSON.stringify(value)) {
@@ -163,7 +206,42 @@ export function findConflictsSince(team: string, sinceSeq: number): Array<{ ref:
   return conflicts;
 }
 
-function nextSeq(file: string): number {
+/**
+ * Digest compaction (the "cleaner"): archive every event at or before
+ * beforeSeq into archive.jsonl and trim the live log. The seq high-watermark
+ * keeps future event ids unique. Cheap (no LLM) — run before a digest round
+ * to keep the live bulletin lean and token-efficient.
+ */
+export function compact(team: string, beforeSeq: number): { archived: number; kept: number } {
+  const root = bulletinRoot(team);
+  const eventsFile = eventsPath(root);
+  if (!fs.existsSync(eventsFile)) return { archived: 0, kept: 0 };
+  const events = readEvents(team);
+  const older = events.filter((e) => e.seq <= beforeSeq);
+  const newer = events.filter((e) => e.seq > beforeSeq);
+  if (older.length) {
+    fs.appendFileSync(
+      path.join(root, "archive.jsonl"),
+      older.map((e) => JSON.stringify(e)).join("\n") + "\n",
+      { encoding: "utf8", flag: "a" },
+    );
+  }
+  fs.writeFileSync(eventsFile, newer.map((e) => JSON.stringify(e)).join("\n") + (newer.length ? "\n" : ""), { encoding: "utf8" });
+  return { archived: older.length, kept: newer.length };
+}
+
+function nextSeq(file: string, root?: string): number {
+  if (root) {
+    const sp = seqPath(root);
+    if (fs.existsSync(sp)) {
+      try {
+        const s = JSON.parse(fs.readFileSync(sp, "utf8")) as { last: number };
+        return s.last + 1;
+      } catch {
+        // fall through to log-derived seq
+      }
+    }
+  }
   if (!fs.existsSync(file)) return 1;
   const lines = fs.readFileSync(file, "utf8").trim().split("\n").filter(Boolean);
   if (lines.length === 0) return 1;

@@ -46,24 +46,27 @@ bulletin on their own cadence. Do NOT wait for acknowledgements.
 
 ### 3. Observe (cheap, frequent)
 
-- `bulletin_read(team_name, since_seq=<last-seen>)` — catch up on what
-  changed. Do this at natural checkpoints (before claiming work, after a
-  long tool run), not in a tight loop.
+- `bulletin_read(team_name)` — catch up on what changed **since your last
+  read** (per-agent watermark; the tool returns only NEW events and advances
+  your cursor). Pass an explicit `since_seq` to re-read from a point.
 - The read itself is a file read. The *cost* is the context you choose to
-  load — so prefer `limit` and `since_seq` over dumping everything.
+  load — so prefer `limit` over dumping everything.
 
 ### 4. Sync round (one LLM call per round — lead/summarizer only)
 
 When a round of parallel work is done (or you have a natural checkpoint):
 
-1. `bulletin_read(team_name, since_seq=<last digest seq>)` — collect events.
+1. `bulletin_read(team_name)` — collect what's new since your last read.
 2. `bulletin_conflicts(team_name, since_seq=<last digest seq>)` — cheap
    symbolic conflict check FIRST.
-3. Compress everything since the last digest into **one** digest (~200–500
+3. `bulletin_compact(team_name)` — CHEAP cleanup: archive events at or
+   before the last digest into `archive.jsonl` so the live bulletin stays
+   lean (the cleaner; keeps future rounds token-efficient).
+4. Compress everything since the last digest into **one** digest (~200–500
    words): what was found, what changed, what is decided, what is open. Fold
    in any conflict resolutions (if a conflict is cheap to resolve, resolve it
    in the digest text; if it needs investigation, say so explicitly).
-4. `bulletin_sync(team_name, digest=<your summary>, members=[...])`.
+5. `bulletin_sync(team_name, digest=<your summary>, members=[...])`.
 
 Other agents now read the digest as their shared picture. A digest is a
 *snapshot*, not a command — teammates decide whether it changes their work.
@@ -72,10 +75,13 @@ Other agents now read the digest as their shared picture. A digest is a
 
 - Conflicts are normal (two agents touched the same `ref`). The cheap check
   finds them; the next sync round resolves them. Do NOT start a debate loop —
-  one resolver (usually the lead) decides, records the decision in the
-  digest, and the team moves on.
-- If a conflict is material (changes someone's in-flight work), post a
-  `signal` with the resolved `value` so the checker tracks the new baseline.
+  one resolver (usually the lead) decides, records the decision, and the team
+  moves on.
+- **Record the decision**: `bulletin_resolve(team_name, ref=<topic>,
+  decision=<choice>)` (LEAD ONLY). The symbolic checker stops flagging that
+  ref, and the decision is folded into the next digest. If a conflict is
+  material (changes someone's in-flight work), post a `signal` with the
+  resolved `value` so the checker tracks the new baseline.
 
 ## Rules
 

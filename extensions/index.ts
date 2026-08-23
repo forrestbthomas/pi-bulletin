@@ -79,11 +79,20 @@ export default function (pi: ExtensionAPI) {
       limit: Type.Optional(Type.Number({ description: "Tail limit (default 20)." })),
     }),
     async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
-      const events = store.readEvents(params.team_name, { sinceSeq: params.since_seq, limit: params.limit ?? 20 });
+      const agent = agentName();
+      // Per-agent watermark: without an explicit since_seq, return only NEW
+      // events since this agent's last read, then advance the cursor.
+      const sinceSeq = params.since_seq !== undefined
+        ? params.since_seq
+        : store.readWatermark(params.team_name, agent);
+      const events = store.readEvents(params.team_name, { sinceSeq, limit: params.limit ?? 20 });
+      if (events.length) {
+        store.markRead(params.team_name, agent, events[events.length - 1].seq);
+      }
       const text = events.length
         ? events.map((e) => `#${e.seq} ${e.kind} ${e.from}: ${JSON.stringify(e.data)}`).join("\n")
-        : "no events";
-      return { content: [{ type: "text", text }], details: { events } };
+        : "no new events since your last read";
+      return { content: [{ type: "text", text }], details: { events, watermark: sinceSeq } };
     },
   });
 
@@ -102,6 +111,44 @@ export default function (pi: ExtensionAPI) {
         ? conflicts.map((c) => `conflict ref=${c.ref}: ${JSON.stringify(c.a)} (seq ${c.seqs[0]}) vs ${JSON.stringify(c.b)} (seq ${c.seqs[1]})`).join("\n")
         : "no conflicts detected";
       return { content: [{ type: "text", text }], details: { conflicts } };
+    },
+  });
+
+  pi.registerTool({
+    name: "bulletin_compact",
+    label: "Bulletin Compact",
+    description:
+      "CHEAP cleanup (the cleaner): archive every event at or before the given seq (default: last digest seq) into archive.jsonl and trim the live log. Run BEFORE a bulletin_sync round to keep the live bulletin lean and token-efficient. Future event ids stay unique (high-watermark).",
+    parameters: Type.Object({
+      team_name: Type.String(),
+      before_seq: Type.Optional(Type.Number({ description: "Archive events with seq <= this (default: last digest seq)." })),
+    }),
+    async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
+      const state = store.readState(params.team_name);
+      const beforeSeq = params.before_seq ?? state?.lastDigestSeq ?? 0;
+      const r = store.compact(params.team_name, beforeSeq);
+      const text = `archived ${r.archived} event(s), kept ${r.kept}`;
+      return { content: [{ type: "text", text }], details: r };
+    },
+  });
+
+  pi.registerTool({
+    name: "bulletin_resolve",
+    label: "Bulletin Resolve",
+    description:
+      "Record a conflict resolution for a ref (LEAD ONLY). Cheap: posts a resolution event; the symbolic conflict checker stops flagging that ref. The decision is folded into the next digest.",
+    parameters: Type.Object({
+      team_name: Type.String(),
+      ref: Type.String({ description: "The ref (topic) being resolved." }),
+      decision: Type.String({ description: "The decision (e.g. 'use 8080')." }),
+    }),
+    async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
+      const event = store.postEvent(params.team_name, "resolution", agentName(), {
+        ref: params.ref,
+        decision: params.decision,
+      });
+      const text = `resolution #${event.seq} recorded for ref=${params.ref}: ${params.decision}`;
+      return { content: [{ type: "text", text }], details: event };
     },
   });
 

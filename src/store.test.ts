@@ -74,3 +74,68 @@ describe("bulletin store", () => {
     expect(s.state?.digest).toBe("d");
   });
 });
+
+describe("read watermarks", () => {
+  it("defaults to no watermark (0)", () => {
+    expect(store.readWatermark("team-a", "alice")).toBe(0);
+  });
+
+  it("marks read at a seq and reads it back", () => {
+    store.postEvent("team-a", "finding", "bob", { ref: "x", claim: "1" });
+    store.postEvent("team-a", "finding", "bob", { ref: "x", claim: "2" });
+    store.markRead("team-a", "alice", 2);
+    expect(store.readWatermark("team-a", "alice")).toBe(2);
+  });
+
+  it("watermarks are per-agent", () => {
+    store.postEvent("team-a", "finding", "bob", { ref: "x", claim: "1" });
+    store.markRead("team-a", "alice", 1);
+    expect(store.readWatermark("team-a", "bob")).toBe(0);
+  });
+});
+
+describe("digest compaction", () => {
+  it("moves events before the cutoff into archive and keeps newer", () => {
+    store.postEvent("team-a", "finding", "a", { ref: "x", claim: "1" });
+    store.postEvent("team-a", "finding", "b", { ref: "x", claim: "2" });
+    store.postDigest("team-a", "lead", "round 1", ["lead"]);
+    store.postEvent("team-a", "finding", "c", { ref: "y", claim: "3" });
+    store.compact("team-a", 2); // archive findings 1-2; keep digest (3) + finding 3 (4)
+    const kept = store.readEvents("team-a");
+    expect(kept).toHaveLength(2);
+    expect(kept[0].kind).toBe("digest");
+    expect(kept[1].data.claim).toBe("3");
+    const root = path.join(process.env.PI_BULLETIN_ROOT!, "team-a");
+    const archive = fs.readFileSync(path.join(root, "archive.jsonl"), "utf8");
+    expect(archive.split("\n").filter(Boolean)).toHaveLength(2);
+  });
+
+  it("seq continues after compaction without collisions", () => {
+    store.postEvent("team-a", "finding", "a", { ref: "x", claim: "1" });
+    store.compact("team-a", 1);
+    const e = store.postEvent("team-a", "finding", "b", { ref: "y", claim: "2" });
+    expect(e.seq).toBe(2);
+    expect(store.readEvents("team-a").map((x) => x.seq)).toEqual([2]);
+  });
+});
+
+describe("conflict resolution", () => {
+  it("a resolution for a ref suppresses later conflict detection on that ref", () => {
+    store.postEvent("team-a", "signal", "alice", { ref: "port", value: "8080" });
+    store.postEvent("team-a", "signal", "bob", { ref: "port", value: "9090" });
+    expect(store.findConflictsSince("team-a", 0)).toHaveLength(1);
+    store.postEvent("team-a", "resolution", "lead", { ref: "port", decision: "use 8080" });
+    expect(store.findConflictsSince("team-a", 0)).toHaveLength(0);
+  });
+
+  it("resolution only suppresses its own ref", () => {
+    store.postEvent("team-a", "signal", "a", { ref: "port", value: "8080" });
+    store.postEvent("team-a", "signal", "b", { ref: "port", value: "9090" });
+    store.postEvent("team-a", "signal", "c", { ref: "host", value: "x" });
+    store.postEvent("team-a", "signal", "d", { ref: "host", value: "y" });
+    store.postEvent("team-a", "resolution", "lead", { ref: "port", decision: "8080" });
+    const conflicts = store.findConflictsSince("team-a", 0);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].ref).toBe("host");
+  });
+});

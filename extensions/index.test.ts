@@ -16,9 +16,11 @@ describe("pi-bulletin extension", () => {
     extension(pi);
     const names = pi.tools.map((t: any) => t.name).sort();
     expect(names).toEqual([
+      "bulletin_compact",
       "bulletin_conflicts",
       "bulletin_post",
       "bulletin_read",
+      "bulletin_resolve",
       "bulletin_status",
       "bulletin_sync",
     ]);
