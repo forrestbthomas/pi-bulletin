@@ -1,0 +1,397 @@
+
+ pi v0.84.1
+ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+
+[Context]
+  .pi/SYSTEM.md, .pi/APPEND_SYSTEM.md, ~/Projects/AGENTS.md, AGENTS.md
+
+[Skills]
+  api-and-interface-design, bet-sizing, brainstorming, browser-testing-with-devtools, ci-cd-and-automation, code-review-and-quality, code-simplification, competitor-analysis, context-engineering,
+debugging-and-error-recovery, deprecation-and-migration, dispatching-parallel-agents, documentation-and-adrs, doubt-driven-development, executing-plans, experiment-design, feature-prioritization,
+finishing-a-development-branch, frontend-ui-engineering, game-design-review, game-designer, game-gdd-author, game-playtest, game-producer, game-prototype, game-scope-check,
+git-workflow-and-versioning, idea-refine, incremental-implementation, interview-me, jtbd-analysis, launch-plan, level-design, librarian, life-into-fiction, metrics-framework,
+observability-and-instrumentation, opportunity-mapping, performance-optimization, pi-subagents, planning-and-task-breakdown, prd-writing, problem-validation, product-positioning,
+receiving-code-review, requesting-code-review, research-synthesis, roadmap-planning, running-openai-technical-screens, scope-cutting, scope-lock, security-and-hardening, shipping-and-launch,
+skills, source-driven-development, spec-crlp, spec-driven-development, spec-index, spec-plan, strategy-doc, subagent-driven-development, survival-crafting, systematic-debugging,
+test-driven-development, user-interview, using-agent-skills, using-context-engine, using-git-worktrees, using-superpowers, verification-before-completion, writing-plans, writing-skills
+
+[Prompts]
+  /gather-context-and-clarify, /parallel-cleanup, /parallel-research, /parallel-review, /review-loop
+
+[Extensions]
+  .pi/extensions/ollama.ts, @demigodmode/pi-web-agent:dist/extension.js, @loreai/pi:dist, agent/extensions/ollama.ts, pi-bulletin, pi-mcp-adapter, pi-spark, pi-subagents@0.48.0, pi-web-access
+
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+
+ You are devil-advocate. You are the devil's advocate. Stress-test others' findings; rank by real impact. Use the bulletin tools for ALL team coordination. Team name: pb-harness. Review the
+ codebase at /Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness (read-only). Post findings with bulletin_post(kind=finding,
+ ref=topic, claim=one-liner).
+
+
+ Reviewing coordination skills
+
+ I need to inspect the read-only status and use the bulletin for coordination. My first step is to call the bulletin status. The instructions say to use the skills bulletin for all team
+ coordination, so maybe I need to read using some superpowers. It looks like I should read relevant skills and project docs. Since the user is asking for a review, I'll focus on reading skills
+ and status first for coordination.
+
+
+ bulletin_status
+ Bulletin: pb-harness @ /Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/bulletin/pb-harness/pb-harness
+ events: 12 (last seq 12)
+ last digest: seq 11 at 2026-08-23T21:03:07.760Z
+ members: lead-synthesizer, bug-hunter, scout, reviewer
+ Round 2 closeout: lead independently read the target README (read-only) and confirmed the team’s earlier observation: it explicitly frames the repository as the author’s personal
+ agent-improvement loop/public discipline demo, and says it is not a product until an outside consumer wants it. This is consistent with the repository’s stated product-boundary framing. No new
+ code defect was investigated in this round; all substantive issues remain those summarized in Round 1. The only new event restated the README finding, and the symbolic conflict check since
+ digest #9 found no conflict. No repository files were modified.
+
+
+
+ [skill] using-superpowers (ctrl+o to expand)
+
+
+
+ [skill] code-review-and-quality (ctrl+o to expand)
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/.pi/npm/node_modules/pi-bulletin/skills/bulletin.md
+
+
+
+ bulletin_read
+ #12 finding bug-hunter: {"ref":"internal/cli/sessions.go:254-257","claim":"BUG: `sessions --heal` never scans listed transcripts: `scanSessionsForFlaps` fabricates
+ `.pi/sessions/<session-id>.jsonl`, but `listSessions` reads timestamp-prefixed filenames (`<timestamp>_<id>.jsonl`), so os.Open fails and no connection-flap event is emitted."}
+
+
+ Inspecting project details
+
+ I need to take a closer look at the project's charter status and the backlog. There's a mention of needing to review the codebase, but the task is read-only. I wonder if I need to run locators
+ in the filesystem using bash. I need to consider whether using "read all local files" violates anything. Maybe running a bash command like pwd is unnecessary. I should gather the source tree
+ names and check the known charter status to direct my next steps.
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/CHARTER.md:1-180
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/STATUS.md:1-160
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/ROADMAP.md:1-160
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/BACKLOG.md:1-160
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/sessions.go:1-420
+
+
+ Troubleshooting timestamp formats
+
+ Okay, I'm thinking about RFC3339, which looks like "2026-08...T...Z," and considering whether to use an underscore then an ID. IDs could include an underscore as well, which seems fine. I guess
+ the index comes after the timestamp. I need to scan the file to correct any bugs. My next step is to find the targeted tests and inspect the dispatch. Let's hope I can get this right!
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/sessions_test.go:1-600
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/cli.go:1-220
+
+ ENOENT: no such file or directory, access '/Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/cli.go'
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/README.md:1-200
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/docs/reference.md:1-220
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/heal.go:1-300
+
+ ENOENT: no such file or directory, access '/Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/heal.go'
+
+
+ Looking into source issues
+
+ I’ve confirmed there’s an issue and feel we might need more devil’s advocate input, especially by scanning lists. I should locate all sources! There's that Bash listing, but should I read first?
+ Maybe I could use Bash to find something, or look at the root directly? I’m thinking about bash rg after identifying a known directory. I also need to inspect the git diff, as the source could
+ involve the worktree with uncommitted changes. The user mentioned the codebase, so I'll check with bash git status, diff, and read through the files.
+
+
+ $ cd /Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness && git status --short && git diff --stat && git diff --
+ internal/cli/sessions.go internal/cli/sessions_test.go && find internal/cli -maxdepth 1 -type f -print | sort (timeout 120s)
+
+ ... (41 earlier lines, ctrl+o to expand)
+ internal/cli/watchdog_test.go
+ internal/cli/watchdog_unix_test.go
+ internal/cli/watchdog_unix.go
+ internal/cli/watchdog_windows.go
+ internal/cli/watchdog.go
+
+ Took 0.1s
+
+
+ Reviewing defects and bugs
+
+ I need to review more defects and confirm the existing bugs. First, I'll independently identify those issues to make sure everything's accurate. It looks like dispatch uses direct reads, which
+ might help simplify this process. I also need to search for session scans and timestamp parsing. Maybe the extension file sessions could indeed be in a real pi format. There are a few steps to
+ piece together, and I want to ensure I'm thorough!
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/app.go:1-300
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/scorecard.go:1-360
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/self_heal.go:1-360
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/.github/workflows/nightly-live-eval.yml:1-280
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/.github/workflows/ci.yml:1-360
+
+
+
+ bulletin_post
+ posted finding #23 (devil-advocate)
+
+
+
+ bulletin_post
+ posted finding #25 (devil-advocate)
+
+
+ Investigating session issues
+
+ I need to find others who might help with the session path that has been confirmed as needing a fix. I'm wondering if the semantics errors could mean that all the timestamps are fake? I need to
+ test error events with timestamps that are both past and future, but there's no current filter in place. Maybe relevant scans are catching old errors instead. I'm considering de-duplication of
+ events on each command, and whether the scorecard reads the entire event ledger correctly. I should examine readSelf Heal too.
+
+
+ $ cd /Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness && grep -RInE 'readSelfHeal|sessions
+ --heal|scanSessionsForFlaps|PI_HEAL_FLAP' internal eval docs README.md .github | head -120 && grep -RIn 'func repoRoot' internal/cli (timeout 120s)
+
+ ... (29 earlier lines, ctrl+o to expand)
+ never fatal).
+ docs/governance/specs-archive/2026-08-14-self-heal-in-provider-scorecard.md:80:2. GREEN: `readSelfHealEvents` + struct field + populate in `runScorecard`; add `PI_SELF_HEAL` to
+ provider-scorecard.yml.
+ README.md:121:  from the session transcript seam; `pi-run sessions --heal` aggregates repeated
+ internal/cli/setup.go:24:func repoRoot() string {
+
+ Took 0.2s
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/docs/governance/specs-archive/2026-08-16-observability-first-resilience.md:1-220
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/scorecard.go:690-814
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/internal/cli/setup.go:1-95
+
+
+
+ read ~/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness/eval/tests/test_contract_launch.py:1-340
+
+
+ Investigating system bugs
+
+ I need to find other bugs because the system indicates that the task is read-only and there aren't likely any tests. It seems the tests only cover unit direct scans and not end-to-end. Some
+ errors appear to be irrelevant due to identical timestamps from an earlier test. Also, there's an issue with filename formatting. The main bug seems to be that repeated invocations lead to
+ inflated event counts. I should check the changelog to see if duplicates are expected and address the ParseDuration issue with the 7d format.Addressing documentation mismatch
+
+ I see there's a mismatch between documentation and expected behavior. For instance, strings.Contains is case-sensitive while regex is not, which could lead to potential errors. The
+ AUTHENTICATION_ERROR should be lowercased in server output too. Additionally, flap scans seem to accept events from far back without a recent filter, creating issues. If we can implement a
+ filter, it may improve handling timestamps, but errors from previous sessions remain a concern, especially regarding the 7d reference.
+
+
+ bulletin_post
+ posted finding #30 (devil-advocate)
+
+
+
+ bulletin_post
+ posted finding #31 (devil-advocate)
+
+
+ Evaluating parsing issues
+
+ I need to analyze the parsing more closely, especially regarding header issues that might be due to malformed lines. I see there could be a valid session, but malformed preambles might still
+ tolerate later headers. I also noticed all timestamp errors are currently set to a default year (2026), which could impact testing boundaries without issues. It seems errors are counted only
+ among themselves, and I need to clarify how old transcripts interact with recent sessions. There could be duplications on commands too.Addressing deduplication problems
+
+ I’m facing a major issue here: there’s no deduplication happening. The --heal command appends a detected event each time, which means identical events are repeatedly written during scans. The
+ metrics scorecard is misleading because it counts these events incorrectly. According to the specs, there should be only one event per session in a scan, but it seems historical deduplication
+ isn’t defined. There’s also a problem with Age in JSON converting to integer nanos, and I need to consider how fields are marshaled as uppercase without tags.Investigating timestamp issues
+
+ I'm noticing that the ISO format shouldn't have underscores, but maybe the ID itself includes them? Everything after the first part still works fine.
+
+ For time parsing, it seems that RFC3339 can’t handle Pi timestamps correctly, particularly for the 2026 standard format starting with "2026-...". This might be leading to repeated pollution in
+ our data. I need to think about how this affects our overall processing and ensure reliability. It’s essential to address these parsing concerns.
+
+
+ bulletin_post
+ posted finding #32 (devil-advocate)
+
+
+ Checking code validation and testing
+
+ I need to run some tests to validate a bug in the code, which is pretty explicit. I might inspect the git log to check for uncommitted changes, aiming for a clean status output. It's critical,
+ so I could consider posting a duplicate issue if necessary. The user asks about coordination, and I need to ensure final findings are ranked concisely. I also wonder about testing with go test,
+ but it seems there’s an existing false test that passes despite the defect.
+
+
+ $ cd /Users/forrestthomas/Projects/harness/.worktrees/spike-bulletin-protocol/spike/pi-bulletin/eval-output/targets/harness && go test ./internal/cli && go vet ./internal/cli && go build ./...
+ (timeout 180s)
+
+ ok     github.com/forrestbthomas/pi-harness/internal/cli   (cached)
+
+ Took 2.2s
+
+
+
+ bulletin_post
+ posted finding #34 (devil-advocate)
+
+
+
+ bulletin_read
+ #13 finding lead-synthesizer: {"ref":"lead/round-3","claim":"Lead is validating the reported sessions --heal filename mismatch against the read-only target and will synthesize team findings; no
+ repository changes will be made."}
+ #14 finding lead-synthesizer: {"ref":"internal/cli/sessions.go:140,254-261","claim":"Confirmed P1: production --heal passes all parsed sessions to scanSessionsForFlaps, which opens
+ `<sessionsDir>/<id>.jsonl`; listSessions only discovers timestamp-prefixed files. Thus every production open misses. Unit tests exercise direct path scanning only, not end-to-end --heal."}
+ #15 finding lead-synthesizer: {"ref":"internal/cli/sessions.go:133-141","claim":"Additional P2: --heal documentation says it scans the --recent window, but implementation calls
+ scanSessionsForFlaps(all, ...) without applying `recent`; old transcripts can create new flap events. Filter with cutoff before scanning and add CLI-level integration coverage."}
+ #16 finding security-spotter: {"ref":"internal/cli/providers.go:105-151 + internal/cli/pi.go:120-139","claim":"HIGH: repository-controlled providers.json is loaded by default with no validation
+ of BaseURL/PiProvider/KeyEnv, then launchEnv injects the resolved API key and arbitrary BaseURL into Pi; a malicious checkout can set openai BaseURL to an attacker endpoint and exfiltrate
+ OPENAI_API_KEY when pi-run starts."}
+ #17 finding security-spotter: {"ref":"internal/cli/hooks.go:69-79,118-119,164-182","claim":"HIGH: a repo-local .pi/hooks.json is treated as executable configuration and each Cmd runs through `sh
+ -c` without an explicit trust/approval boundary; opening/running an untrusted checkout can execute attacker-supplied shell before eval/chat."}
+ #18 finding security-spotter: {"ref":".pi/settings.json:49-56","claim":"MEDIUM: project package loading includes unpinned third-party npm/git packages (notably `git:github.com/dannote/dot-pi`
+ with no immutable revision); automatic Pi package install/update creates a supply-chain code-execution path."}
+ #19 finding complexity-analyst: {"ref":"internal/cli/scorecard.go","claim":"Maintainability: 917-line scorecard.go mixes CLI parsing, orchestration, benchmark execution, ledger attribution,
+ repeat/median aggregation, gates, provenance, persistence, and rendering; split into options/run/aggregation/gates/artifact modules so changes to one policy do not require holding the entire
+ benchmark workflow."}
+ #20 finding complexity-analyst: {"ref":"eval/scripts/score_run.py","claim":"Maintainability: 783-line score_run.py combines pytest-report decoding, special-case live/judge run semantics,
+ aggregation, flake/regression policy, provenance, baseline mutation, JSON/Markdown rendering, and CLI I/O; isolate pure report/aggregation/gate functions from output and baseline commands to
+ make policy changes testable without end-to-end fixtures."}
+ #21 finding complexity-analyst: {"ref":"internal/cli/project_understand.go:515-562","claim":"Maintainability: project-understand implements ad-hoc JSON/TOML field parsing with string searches in
+ an otherwise filesystem-scanning command; this creates a second, format-fragile parser path. Prefer stdlib decoding of supported manifests (or explicitly narrow the feature) rather than growing
+ handwritten syntax handling."}
+ #22 finding complexity-analyst: {"ref":"internal/cli/app.go:207-284","claim":"Maintainability: launch arguments are parsed by two separate manual scanners (splitCostModeFlag then
+ splitLaunchArgs), each reimplementing `--` and flag-form rules; adding a launch option requires coordinating both passes and risks pass-through drift. Use one owned-flag parser that returns all
+ harness options plus passthrough args."}
+ #23 finding devil-advocate: {"ref":"internal/cli/sessions.go:109-114","claim":"Required: `sessions --heal` promises to scan the selected/recent window but passes `all` into
+ `scanSessionsForFlaps`; stale transcripts are scanned despite default `--recent 24h` (and `--recent` has no effect), producing misleading current heal evidence."}
+ #24 finding bug-hunter: {"ref":"internal/cli/cost.go:recordRunSpend/sessionAttribution","claim":"BUG: recurring writes to one persisted Pi session overcount ledger spend. `recordRunSpend`
+ computes only the marginal `delta`, but `sessionAttribution` appends every cost record in files mtime>=start; a resumed/updated transcript includes prior turns, so run 2 re-appends run 1 cost
+ and `currentSpend` lets inflated ledger total win."}
+ #25 finding devil-advocate: {"ref":"internal/cli/sessions.go:254-257","claim":"Critical (confirmed): `scanSessionsForFlaps` rebuilds `<sessions>/<id>.jsonl`, while listSessions accepts
+ timestamp-prefixed files. Thus normal v3 transcripts cannot be opened and `sessions --heal` always reports 0 events; the claimed chat-path observability pump is nonfunctional."}
+ #26 finding security-spotter: {"ref":"internal/cli/benchmark.go:289-339","claim":"HIGH: live benchmark isolation is bypassed before Docker: task.Prompt is passed to a privileged local Pi agent
+ with real provider credentials, while task.Repo is shallow-cloned and opened locally. An untrusted task/repo can prompt-inject the agent to read/exfiltrate host secrets or modify the host;
+ Docker only grades afterward."}
+ #27 finding bug-hunter: {"ref":"internal/cli/sessions.go:118-126","claim":"BUG: `sessions --heal` promises to scan the recent window but passes unfiltered `all` sessions to
+ `scanSessionsForFlaps`; old transcripts produce fresh flap events, and `--recent` has no effect on the heal scan."}
+ #28 finding security-spotter: {"ref":"internal/cli/setup.go:72-98 + eval/requirements.txt:10-15","claim":"MEDIUM: `pi-run setup` installs mutable PyPI compatible-release ranges directly into a
+ venv with no lockfile, hashes, or `--require-hashes`; a compromised/new dependency release executes during setup and makes evaluations non-reproducible."}
+ #29 finding bug-hunter: {"ref":"internal/cli/app.go:runLaunch / internal/cli/pi.go:execPiDirTimeout","claim":"BUG: normal `pi-run print` launches via unsupervised `execPi`, not
+ `execPiDirTimeout`; despite the watchdog contract saying print runs are bounded, a stalled print process (and children) can hang forever with no exit-9/escalation event."}
+ #30 finding devil-advocate: {"ref":"internal/cli/sessions.go:87-98;docs/reference.md:174","claim":"Required: help promises `--recent 7d`, but `time.ParseDuration` has no day unit; `pi-run
+ sessions --recent 7d` exits 2. Implement day parsing or stop documenting 7d."}
+ #31 finding devil-advocate: {"ref":"internal/cli/sessions.go:218-221","claim":"Required: malformed first non-empty transcript line permanently leaves `first=true`, so a later `type=session` line
+ is treated as a valid header. This contradicts the documented/acceptance behavior to parse the leading session header and skip malformed transcripts."}
+ #32 finding devil-advocate: {"ref":"internal/cli/sessions.go:136-144,391-408","claim":"Required: `sessions --heal` has no idempotency/deduplication; every invocation appends the same flap again.
+ Scorecard `selfHeal.nEvents` then measures scan frequency rather than failures, corrupting the observability evidence."}
+ #33 digest lead-synthesizer: {"digest":"Round 3 review synthesis (read-only target; no files changed). Confirmed a release-blocking functional defect in `pi-run sessions --heal`: `listSessions`
+ discovers timestamp-prefixed transcripts, but `scanSessionsForFlaps` reconstructs an unprefixed `<id>.jsonl` path, so normal production scans cannot open any discovered transcript and silently
+ write zero flap events. Existing tests only call the one-file scanner with the correct fixture path. Also confirmed a narrower behavior mismatch: help/comments promise `--heal` scans the
+ `--recent` window, while code scans `all`; stale transcripts can therefore produce a new event. Fix should retain each discovered file path (or resolve ID to that exact path), filter by recent
+ cutoff before scan, and add end-to-end CLI/integration tests for prefixed filenames and old-session exclusion.\n\nSecurity review reported two trust-boundary risks. Default repository-controlled
+ `providers.json` is loaded without restricting provider endpoint/key environment fields, then `launchEnv` supplies the resolved key and configured base URL to Pi; a malicious checkout can point
+ a selected provider at an attacker-controlled endpoint. Repo-local `.pi/hooks.json` is likewise executable configuration passed to `sh -c` for lifecycle hooks, without an explicit
+ trusted-checkout/approval boundary. These are material if the CLI is run in an untrusted checkout with credentials; document/enforce the trust model, or make config/hook execution opt-in/outside
+ the checkout. A third-party package in `.pi/settings.json` uses a mutable git reference, creating supply-chain exposure.\n\nMaintainability observations: `scorecard.go` and `score_run.py` are
+ overly broad policy/orchestration modules; launch flags are parsed by two manual passes; project-understand uses fragile hand-parsing for JSON/TOML. These are non-blocking debt compared with the
+ concrete defects. `go test ./internal/cli` was run on the target and passed, demonstrating the missing end-to-end coverage rather than disproving the --heal defect. Symbolic conflict check since
+ digest #11: no conflicts.","replacedSeq":11}
+ #34 finding devil-advocate: {"ref":"internal/cli/sessions_test.go","claim":"Test-gap (high impact): unit tests exercise only `scanSessionConnectionFlaps` with a direct temp-file path; none
+ exercise `runSessions --heal` or `scanSessionsForFlaps` using real timestamp-prefixed files. This let the core integration failure ship green."}
+
+
+ Devil’s-advocate review complete
+
+ Posted findings to the pb-harness bulletin, prioritized by impact.
+
+ ### Highest-impact confirmed defects
+
+ 1. Critical — sessions --heal is nonfunctional
+    listSessions discovers timestamp-prefixed transcript filenames, but scanSessionsForFlaps reconstructs unprefixed <id>.jsonl paths. Production scans therefore open no transcripts and silently
+    report zero flap events.
+    Ref: internal/cli/sessions.go:254-257
+
+ 2. Required — heal ignores the documented --recent scope
+    sessions --heal scans every transcript via all, rather than filtering to the requested/default recent window. Old failures can become fresh events, distorting current health evidence.
+    Ref: internal/cli/sessions.go:109-114
+
+ 3. Required — repeated scans inflate self-heal metrics
+    Every sessions --heal invocation appends duplicate flap records; scorecards then measure scan frequency rather than distinct observed failures.
+    Ref: internal/cli/sessions.go:136-144,391-408
+
+ 4. Required — documented 7d duration is rejected
+    Usage advertises --recent 7d, but Go time.ParseDuration does not accept days.
+    Ref: internal/cli/sessions.go:87-98; docs/reference.md:174
+
+ 5. High-impact test gap
+    Tests validate direct file scanning but not the actual sessions --heal path using standard timestamp-prefixed transcripts, which allowed the primary defect to pass CI.
+    Ref: internal/cli/sessions_test.go
+
+ 6. Required — malformed-header behavior contradicts the stated contract
+    A malformed first non-empty line does not disqualify a transcript; a later session record is accepted as the header.
+    Ref: internal/cli/sessions.go:218-221
+
+ ### Verification
+
+ Read-only target validation succeeded:
+
+ ```text
+   go test ./internal/cli
+   go vet ./internal/cli
+   go build ./...
+ ```
+
+ The green tests reinforce the missing end-to-end coverage; they do not invalidate the filename-path defect.
+
+
+ will you let me know when you're done
+
+
+ Yes — I’m done. I posted the review findings to the pb-harness bulletin and summarized the highest-impact defects above.
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── openrouter/openai/gpt-5.6-terra:medium ─
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+~/P/h/./spike-bulletin-protocol · spike-bulletin-protocol · Review harness codebase findings                                           OpenRouter $9.43 · MCP: 0/3 servers · $0.29 · 86K/1.1M (8.1%)

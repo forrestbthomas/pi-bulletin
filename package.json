@@ -1,0 +1,42 @@
+{
+  "name": "pi-bulletin",
+  "version": "0.1.0",
+  "description": "Bulletin-first agent coordination for Pi: cheap eventing + batched digests + reconcile-on-conflict (blackboard pattern).",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "multi-agent",
+    "agent-coordination",
+    "blackboard",
+    "bulletin",
+    "spike"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit --strict --skipLibCheck --module nodenext --moduleResolution nodenext --target es2022 extensions/index.ts src/store.ts"
+  },
+  "main": "extensions/index.ts",
+  "files": [
+    "extensions",
+    "skills",
+    "src",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "pi": {
+    "extensions": [
+      "extensions/index.ts"
+    ],
+    "skills": [
+      "skills"
+    ]
+  }
+}
