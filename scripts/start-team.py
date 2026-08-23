@@ -172,7 +172,9 @@ def main():
             type_lines(pane, (
                 f"You are {role}. {rp} Use the bulletin tools (bulletin_status, "
                 "bulletin_post, bulletin_read, bulletin_conflicts, bulletin_sync) for ALL team "
-                "coordination — never direct-message other agents. Team name: "
+                "coordination — never direct-message other agents. IMPORTANT: teammates NEVER "
+                "message you directly — collect their findings with bulletin_read and never wait "
+                "for them to 'send' you anything. Team name: "
                 f"{session}. Review the target at {target} (read-only). As lead, run "
                 "bulletin_conflicts then bulletin_sync at each round end.\n" + task
             ))

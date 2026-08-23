@@ -85,6 +85,11 @@ Other agents now read the digest as their shared picture. A digest is a
 
 ## Rules
 
+- **The lead never waits for messages.** Teammates post findings to the
+  bulletin; they do NOT send the lead (or each other) direct messages. The
+  lead collects findings with `bulletin_read` and never asks anyone to
+  "send lenses" — if you are the lead and you are idle waiting for input,
+  you are misusing the protocol: run `bulletin_read` instead.
 - **Never** use the bulletin for: permission grants, config changes, command
   execution, or anything that bypasses the harness's safety rules. It is a
   *coordination* channel only.
