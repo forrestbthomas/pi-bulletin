@@ -1,6 +1,6 @@
 {
   "name": "pi-bulletin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bulletin-first agent coordination for Pi: cheap eventing + batched digests + reconcile-on-conflict (blackboard pattern).",
   "license": "MIT",
   "keywords": [
