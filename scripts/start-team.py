@@ -135,11 +135,12 @@ def main():
         die(f"target {target} missing")
     if pane_exists(session):
         die(f"tmux session '{session}' already exists — pick a fresh team or clean up")
-    bulletin_root = capture_dir / "bulletin" / session
+    # Live bulletin state lives under the project's .pi (like sessions), NOT
+    # inside the capture dir — capture copies it out, so source != dest.
+    bulletin_root = root / ".pi" / "bulletin" / session
     capture_dir.mkdir(parents=True, exist_ok=True)
     bulletin_root.mkdir(parents=True, exist_ok=True)
 
-    # panes carry an exit trap so a dying agent prints its code and keeps the pane alive
     env0 = (f"env PI_BULLETIN_AGENT={roles[0]} PI_BULLETIN_ROOT={bulletin_root} "
             f"{args.launch}; echo PANE_EXITED=$?; sleep 600")
     session_env = []
@@ -193,7 +194,8 @@ def main():
     ss = root / ".pi" / "sessions"
     if ss.is_dir():
         shutil.copytree(ss, capture_dir / "sessions")
-    shutil.copytree(bulletin_root, capture_dir / "bulletin" / session, dirs_exist_ok=True)
+    if bulletin_root.is_dir():
+        shutil.copytree(bulletin_root, capture_dir / "bulletin" / session)
     log(f"captured -> {capture_dir}/  (sessions, bulletin, pane transcript)")
     log(f"cleanup: tmux kill-session -t {session} (run manually)")
 
