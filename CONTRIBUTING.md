@@ -107,9 +107,22 @@ landed** — otherwise the tag is not an ancestor of `main`. Correct order:
 
 1. Merge all release commits (including the CHANGELOG entry) via PR.
 2. Ensure local main is current: `git fetch origin && git pull --ff-only origin main`.
-3. Tag the merged tip and push it: `git tag -a vX.Y.Z main && git push origin vX.Y.Z`.
-   The Release workflow verifies the tag is an ancestor of `main`, runs the
-   gitleaks gate, publishes to npm, and creates a GitHub release.
+3. Publish to npm **from local main** (recommended — lets the maintainer use
+   their npm credentials/security key):
+
+   ```bash
+   npm publish --access public
+   ```
+
+   If CI publishing is preferred instead, add an `NPM_TOKEN` secret with
+   publish rights; the Release workflow then publishes with provenance.
+4. Tag the merged tip and push it — the Release workflow verifies the tag is
+   an ancestor of `main` and creates the GitHub release (npm publish in the
+   workflow runs only when `NPM_TOKEN` is configured):
+
+   ```bash
+   git tag -a vX.Y.Z main && git push origin vX.Y.Z
+   ```
 
 ## Syncing after a merge
 

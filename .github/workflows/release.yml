@@ -41,11 +41,15 @@ jobs:
             exit 1
           fi
           echo "package.json ${pkg} matches tag ${tag}"
-      - name: Publish to npm
-        # Requires an NPM_TOKEN secret with publish rights (repo settings →
-        # Secrets → Actions). Provenance is enabled via the id-token
-        # permission; drop `--provenance` if your npm registry/token does not
-        # support OIDC provenance.
+      - name: Publish to npm (only if NPM_TOKEN is configured)
+        # Publishing can run two ways:
+        #   1. CI: set an NPM_TOKEN secret with publish rights; this step runs
+        #      (uses npm OIDC provenance via the id-token permission).
+        #   2. Local: skip the token and publish from a laptop with the
+        #      maintainer's npm credentials/security key (see CONTRIBUTING.md
+        #      "Releases"). This step is skipped when NPM_TOKEN is absent so
+        #      the tag run still creates the GitHub release.
+        if: env.NPM_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
