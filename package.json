@@ -3,6 +3,18 @@
   "version": "0.2.0",
   "description": "Bulletin-first agent coordination for Pi: cheap eventing + batched digests + reconcile-on-conflict (blackboard pattern).",
   "license": "MIT",
+  "author": "Forrest Thomas <forrestbthomas@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forrestbthomas/pi-bulletin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/forrestbthomas/pi-bulletin/issues"
+  },
+  "homepage": "https://github.com/forrestbthomas/pi-bulletin#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "keywords": [
     "pi-package",
     "multi-agent",

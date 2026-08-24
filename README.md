@@ -1,5 +1,9 @@
 # pi-bulletin
 
+[![npm version](https://img.shields.io/npm/v/pi-bulletin)](https://www.npmjs.com/package/pi-bulletin)
+[![CI](https://img.shields.io/github/actions/workflow/status/forrestbthomas/pi-bulletin/ci.yml?branch=main)](https://github.com/forrestbthomas/pi-bulletin/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/forrestbthomas/pi-bulletin)](LICENSE)
+
 Bulletin-first agent coordination for [Pi](https://pi.dev/): a shared
 blackboard where agents post findings cheaply, a lead/summarizer compresses
 them into a digest **once per round**, and conflicts are reconciled only
@@ -11,11 +15,12 @@ recipient's context, teammates have no shared situational awareness, and the
 coordination layer is tightly coupled to agent lifecycle. pi-bulletin
 separates the two: **reconcile the shared state, not the conversations.**
 
-**Status:** v0.1.0, early but validated. The design was measured in a
-side-by-side eval against pi-teams on a 5-agent read-only review task: the
-bulletin leg completed (4m14s, ~$0.80, 6 code-cited findings); the pi-teams
-leg failed to complete (reproducible teammate startup stall, 2/2 attempts).
-Evidence: `eval-output/leg-b/`.
+**Status:** v0.2.0 on npm; the lead-stall watchdog is merged on `main` and
+ships in **v0.3.0**. The design was measured in a side-by-side eval against
+pi-teams on a 5-agent read-only review task: the bulletin leg completed
+(4m14s, ~$0.80, 6 code-cited findings); the pi-teams leg failed to complete
+(reproducible teammate startup stall, 2/2 attempts). Evidence:
+`eval-output/leg-b/`.
 
 ## The model
 
@@ -30,17 +35,9 @@ Evidence: `eval-output/leg-b/`.
 Research mapping and design rationale: `docs/DESIGN.md`. The full eval
 protocol: `docs/EVAL-PLAN.md`.
 
-## Tools
+## Usage
 
-| Tool | Cost | Purpose |
-|---|---|---|
-| `bulletin_status` | cheap | team root, event count, last digest |
-| `bulletin_post` | cheap | post a finding/signal (structured `ref` + `claim`) |
-| `bulletin_read` | cheap | catch up since a seq |
-| `bulletin_conflicts` | cheap | symbolic same-ref/different-value check |
-| `bulletin_sync` | LLM (1/round) | lead compresses everything since last digest |
-
-## Install (as a Pi package)
+Install the package (as a Pi package):
 
 ```bash
 pi install npm:pi-bulletin      # once published
@@ -48,25 +45,31 @@ pi install npm:pi-bulletin      # once published
 pi install file:/path/to/pi-bulletin
 ```
 
-Then use the protocol in `skills/bulletin.md`: fan out → observe → sync
-round → reconcile-on-conflict.
+Agents coordinate through the `bulletin_*` tools — no peer message passing:
 
-## Watchdog (lead-stall detection)
-
-`scripts/start-team.py` runs a watchdog while the team is attached (on by
-default): it polls the bulletin every `--watchdog-interval` seconds (20) and
-nudges the lead pane when the lead shows the stall signature from issue #1 —
-idle ≥ `--watchdog-idle-min` minutes (5) with unread non-lead bulletin
-events. The nudge is a tmux send-keys into the lead's session telling it to
-`bulletin_read` (the same mechanism a human used to un-stall the first
-dogfood run). Nudges are debounced by `--watchdog-nudge-min` (default =
-idle-min) and stop as soon as the lead reads. The watchdog is pure file I/O
-and never writes to the bulletin; its audit trail is `watchdog.log` in the
-capture dir. Disable with `--no-watchdog`.
-
-```bash
-./start-team.py --team my-team --watchdog-idle-min 3 --watchdog-nudge-min 2
+```text
+bulletin_status(team_name="team-a")                      # confirm the bulletin exists
+bulletin_post(team_name="team-a", kind="finding",
+              ref="api", claim="endpoint moved to /v2")  # cheap share
+bulletin_read(team_name="team-a")                        # what changed since my last read
+bulletin_conflicts(team_name="team-a", since_seq=3)      # cheap symbolic conflict check
+bulletin_sync(team_name="team-a", digest="round 1: ...") # lead compresses one digest/round
 ```
+
+Full protocol (fan out → observe → sync round → reconcile-on-conflict):
+`skills/bulletin.md`.
+
+## Tools
+
+| Tool | Cost | Purpose |
+|---|---|---|
+| `bulletin_status` | cheap | team root, event count, last digest |
+| `bulletin_post` | cheap | post a finding/signal (structured `ref` + `claim`) |
+| `bulletin_read` | cheap | catch up since a seq (per-agent watermark) |
+| `bulletin_conflicts` | cheap | symbolic same-ref/different-value check |
+| `bulletin_compact` | cheap | archive old events; keeps the live log lean |
+| `bulletin_resolve` | cheap | record a conflict decision (lead only) |
+| `bulletin_sync` | LLM (1/round) | lead compresses everything since last digest |
 
 ## Development
 
@@ -74,7 +77,21 @@ capture dir. Disable with `--no-watchdog`.
 npm install
 npm test          # hermetic store tests (PI_BULLETIN_ROOT override)
 npm run typecheck # extension + store typecheck
+python3 scripts/test_bulletin_watchdog.py   # watchdog tests (stdlib unittest)
 ```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full contributor guide
+(setup, commit style, versioning, releases).
+
+## Security
+
+Report vulnerabilities privately via GitHub's Security tab — see
+[`SECURITY.md`](SECURITY.md). A gitleaks secret scan runs in CI and as a
+maintainer-machine pre-push hook; never commit API keys or tokens.
+
+## Changelog
+
+See [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog format).
 
 ## License
 
