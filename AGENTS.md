@@ -59,6 +59,12 @@ CI runs all three test commands; make sure they pass locally before pushing.
   containing secrets; assume CI and reviewers check too.
 - **Never mutate git history** unless explicitly asked; sync with
   `git pull --ff-only`.
+- **No direct pushes to `main`** — branch protection enforces it (PR
+  required, CI checks `test` + `secret-scan` must pass, enforced for
+  admins). All changes land via a short-lived feature branch
+  (`feature/<desc>` / `fix/<desc>` / `docs/<desc>` / `chore/<desc>`) and a
+  squash-merged PR. The release tag is cut from the merged main tip after
+  the release commit lands via PR (CONTRIBUTING.md "Releases").
 
 ## Guardrails / protocol rules
 
