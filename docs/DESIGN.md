@@ -46,6 +46,27 @@ Sources are cited inline; full citations in
    (not model) failures is the reason the *protocol* is the product here, not
    the plumbing.
 
+## 2026 evidence refresh (2026-08-23, `docs/research-report-2026.md`)
+
+Four-agent research team (EM/tech-lead + efficiency/reconciliation/reliability/
+accuracy lanes) refreshed the evidence base against late-2025/2026 sources.
+**Verdict: CONFIRM the stance — update, not challenge.** Headline findings:
+
+| Component | 2026 verdict | Key new evidence | Action |
+|---|---|---|---|
+| Eventing + watermarks | KEEP, extend | PatchBoard (2605.29313, verified): validated JSON-Patch shared state beats LangGraph/Flock 84.6% vs 30.8%/61.6% at 45.5k vs 368.3k/64.2k tokens/success (~8x). ESAA (2602.23193) is the same event-log+snapshot shape. LangGraph DeltaChannel (PR #7586): deltas beat full snapshots (O(N^2) -> 41-112x smaller). | Add writer attribution + per-event version; supersession marking |
+| Symbolic conflict check | KEEP, upgrade | LatticeMind re-validated (2608.08236): -checker -12pts, -reconciler -14pts. CRDTs converge but leave 5-10% semantic conflicts (2510.18893) — can't replace symbolic checks. TOKI (2606.06240): losing claims must persist as audit rows. | Add evidence tiers + recency tiebreak + normalized dedupe (zero-LLM); keyed resolver log |
+| Digest round | KEEP, structure | Tokenomics (2601.14470, verified): 59.4% of tokens in re-injection-heavy Code-Review; 53.9% input tokens. Full-history context degrades quality (2607.09493). ECHO (2606.31650): source-indexed records beat rolling summaries (43.4% vs 36.1% SUPO). | One digest/round stays; structure it (Decisions/Findings/Open with event IDs + status); never silently resolve contested items |
+| Reconciliation | KEEP | Debate is a martingale: 2.1-3.4x tokens, equal/lower accuracy (2605.00914); voting explains most MAD gains (2508.17536). LLM judges flip 13.6% of repeated decisions (2606.13685) -> log keyed decisions + provenance. | Single resolver stays; LLM fires only on evidence ties |
+| Compaction | KEEP, harden | fsync + torn-tail framing is the durability bar; OpenClaw lost messages on plain-file queue, moved to SQLite outbox (openclaw#32063). Compression loses hard constraints (2607.18265). | fsync after state.json commit; seq+length+checksum framing + torn-tail truncation; keep archive retrievable |
+| Watchdog | KEEP, upgrade | Claude 600s inactivity timer killed healthy requests (claude-code#85265); LangGraph 1.2 run_timeout vs idle_timeout (PR #7599); MAS-FIRE (2602.19843): closed-loop supervision neutralizes >40% of faults. | Keep "idle lead WITH unread events"; add wall-clock per-round cap; nudge->kill with maxRetries |
+
+Scope challenge: a 260-config controlled study (Nature MI 2026) found the
+single-agent baseline is the strongest predictor of MAS gains (94%) —
+multi-agent coordination must be earned per task, not assumed. Evidence
+caveats (§6 of the report): most 2026 sources are unreviewed preprints;
+memory-substrate results transfer to an event log by inference.
+
 ## Explicit non-goals (spike)
 
 - No process spawning / terminal panes (pi-teams owns that layer; Claude
