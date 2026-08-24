@@ -15,8 +15,8 @@ recipient's context, teammates have no shared situational awareness, and the
 coordination layer is tightly coupled to agent lifecycle. pi-bulletin
 separates the two: **reconcile the shared state, not the conversations.**
 
-**Status:** v0.2.0 on npm; the lead-stall watchdog is merged on `main` and
-ships in **v0.3.0**. The design was measured in a side-by-side eval against
+**Status:** v0.3.0 (watchdog + OSS maturity) on npm. The design was measured in a
+side-by-side eval against
 pi-teams on a 5-agent read-only review task: the bulletin leg completed
 (4m14s, ~$0.80, 6 code-cited findings); the pi-teams leg failed to complete
 (reproducible teammate startup stall, 2/2 attempts). Evidence:
