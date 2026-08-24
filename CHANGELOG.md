@@ -6,6 +6,32 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-24
+
+### Added
+
+- **Auditable digest rounds**: digests are now structured snapshots with
+  provenance. `bulletin_sync` accepts `decisions`, `findings`, and `open`
+  sections; each item can carry event-ID `evidence` and an optional
+  `status`, so the shared picture traces back to the underlying events.
+  Contested items go in `open` and are never silently resolved.
+- **Round/lead fencing**: digest writes are single-writer. The first digest
+  sets the lead; later digests must come from the same lead and advance a
+  monotonic round. Stale retries and duplicate syncs for the same round are
+  rejected, so double digests are impossible.
+- **Replayable state**: the latest digest state can be rebuilt from
+  `digests.jsonl` independent of `state.json` — recovery and audit still
+  work if the snapshot file is lost or corrupted.
+- `bulletin_resolve` accepts an optional `rationale` recording why a decision
+  was made; the decision's evidence seqs fold into the next digest's
+  `decisions` section.
+
+### Changed
+
+- `bulletin_sync` and `bulletin_status` now report the digest round, lead,
+  and coverage range (`coverageFrom..coverageTo`) showing which events each
+  digest folded in.
+
 ## [0.4.0] - 2026-08-24
 
 ### Added
