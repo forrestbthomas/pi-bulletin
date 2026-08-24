@@ -1,0 +1,9 @@
+# Code ownership for review routing.
+# @forrestbthomas owns the whole repo; add teams/individuals per path as the
+# project grows.
+
+*       @forrestbthomas
+
+# The launcher/watchdog Python scripts share a dependency surface (stdlib
+# only); keep a maintainer focused there.
+/scripts/ @forrestbthomas
