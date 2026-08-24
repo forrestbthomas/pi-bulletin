@@ -19,14 +19,14 @@ seq (0 first). Digest event data gains round/decisions/findings/open/
 coverageFrom/coverageTo.
 
 **Acceptance criteria:**
-- [ ] `postDigest` with structured sections stores them on event + state
-- [ ] Non-lead write throws; stale round throws with expected round in message
-- [ ] Evidence seq beyond high-watermark throws naming the seq
-- [ ] Coverage fields derived correctly (first digest: from 0, to last seq)
-- [ ] Legacy 4-arg calls still work
+- [x] `postDigest` with structured sections stores them on event + state
+- [x] Non-lead write throws; stale round throws with expected round in message
+- [x] Evidence seq beyond high-watermark throws naming the seq
+- [x] Coverage fields derived correctly (first digest: from 0, to last seq)
+- [x] Legacy 4-arg calls still work
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** None
 
@@ -43,12 +43,12 @@ coverageFrom/coverageTo.
 legacy events). Never reads `state.json`.
 
 **Acceptance criteria:**
-- [ ] After 2 digests, `replayState` equals `readState`
-- [ ] Works when `state.json` is deleted/corrupt
-- [ ] Legacy digest event (no round/sections) replays with defaults, no throw
+- [x] After 2 digests, `replayState` equals `readState`
+- [x] Works when `state.json` is deleted/corrupt
+- [x] Legacy digest event (no round/sections) replays with defaults, no throw
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** Task 1
 
@@ -66,11 +66,11 @@ recovery, backward compat with legacy roots, zero-LLM guard (fetch never
 called on the digest path).
 
 **Acceptance criteria:**
-- [ ] All store acceptance criteria covered by tests
-- [ ] Zero-LLM guard test present
+- [x] All store acceptance criteria covered by tests
+- [x] Zero-LLM guard test present
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** Tasks 1-2
 
@@ -81,10 +81,10 @@ called on the digest path).
 
 ## Checkpoint: Store
 
-- [ ] Fencing tests pass (non-lead, stale round)
-- [ ] Evidence validation errors name the bad seq
-- [ ] `replayState` matches `readState`; legacy digests replay with defaults
-- [ ] `npm test` green
+- [x] Fencing tests pass (non-lead, stale round)
+- [x] Evidence validation errors name the bad seq
+- [x] `replayState` matches `readState`; legacy digests replay with defaults
+- [x] `npm test` green
 
 ## Phase 2: Extension surface
 
@@ -96,13 +96,13 @@ evidence?}`); `bulletin_resolve` gains optional `rationale`; `bulletin_status`
 shows round/lead/coverageFrom/coverageTo.
 
 **Acceptance criteria:**
-- [ ] `bulletin_sync` stores structured sections + round
-- [ ] `bulletin_resolve` stores rationale
-- [ ] `bulletin_status` renders round/lead/coverage
+- [x] `bulletin_sync` stores structured sections + round
+- [x] `bulletin_resolve` stores rationale
+- [x] `bulletin_status` renders round/lead/coverage
 
 **Verification:**
-- [ ] `npm test`
-- [ ] `npm run typecheck`
+- [x] `npm test`
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 1
 
@@ -118,11 +118,11 @@ round through the tool path; resolve with rationale; status shows
 round/lead; non-lead sync errors propagate as a tool error.
 
 **Acceptance criteria:**
-- [ ] Tool-path tests for the new params pass
-- [ ] Existing registration tests stay green
+- [x] Tool-path tests for the new params pass
+- [x] Existing registration tests stay green
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** Task 4
 
@@ -133,10 +133,10 @@ round/lead; non-lead sync errors propagate as a tool error.
 
 ## Checkpoint: Extension
 
-- [ ] `bulletin_sync` accepts decisions/findings/open and stores them
-- [ ] `bulletin_resolve` stores rationale
-- [ ] `bulletin_status` shows round/lead/coverage
-- [ ] `npm test` + `npm run typecheck` green
+- [x] `bulletin_sync` accepts decisions/findings/open and stores them
+- [x] `bulletin_resolve` stores rationale
+- [x] `bulletin_status` shows round/lead/coverage
+- [x] `npm test` + `npm run typecheck` green
 
 ## Phase 3: Polish
 
@@ -150,11 +150,11 @@ on retry; note fencing errors mean "read the bulletin, then re-sync round+1".
 `bulletin_status`.
 
 **Acceptance criteria:**
-- [ ] Structured-digest protocol documented in the skill
-- [ ] README tools table reflects new params
+- [x] Structured-digest protocol documented in the skill
+- [x] README tools table reflects new params
 
 **Verification:**
-- [ ] Docs read cleanly
+- [x] Docs read cleanly
 
 **Dependencies:** Tasks 4-5
 
@@ -172,12 +172,12 @@ errors, stale-round retry errors, delete `state.json` then verify
 `replayState` matches, `bulletin_status` shows round/lead/coverage.
 
 **Acceptance criteria:**
-- [ ] Structured digest stored and visible in status
-- [ ] Fencing errors surface the expected round
-- [ ] Replay after state.json deletion matches
+- [x] Structured digest stored and visible in status
+- [x] Fencing errors surface the expected round
+- [x] Replay after state.json deletion matches
 
 **Verification:**
-- [ ] Observed in the dryrun output
+- [x] Observed in the dryrun output
 
 **Dependencies:** Tasks 4-6
 
@@ -190,13 +190,13 @@ errors, stale-round retry errors, delete `state.json` then verify
 **Description:** Run the complete verification set.
 
 **Acceptance criteria:**
-- [ ] All spec acceptance criteria met
-- [ ] Repo ready for review / commit / release(v0.5.0)
+- [x] All spec acceptance criteria met
+- [x] Repo ready for review / commit / release(v0.5.0)
 
 **Verification:**
-- [ ] `npm test`
-- [ ] `npm run typecheck`
-- [ ] `python3 scripts/test_bulletin_watchdog.py`
+- [x] `npm test`
+- [x] `npm run typecheck`
+- [x] `python3 scripts/test_bulletin_watchdog.py`
 
 **Dependencies:** Task 7
 
@@ -206,5 +206,5 @@ errors, stale-round retry errors, delete `state.json` then verify
 
 ## Checkpoint: Complete
 
-- [ ] All acceptance criteria in the spec met
-- [ ] Ready for review / commit / release(v0.5.0)
+- [x] All acceptance criteria in the spec met
+- [x] Ready for review / commit / release(v0.5.0)

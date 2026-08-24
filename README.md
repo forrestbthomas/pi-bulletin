@@ -38,6 +38,11 @@ pi-teams on a 5-agent read-only review task: the bulletin leg completed
   same-author corrections are updates not conflicts, and a resolved losing
   claim is kept in the log as a superseded audit marker — never silently
   erased.
+- **Auditable digest rounds:** each digest is a structured snapshot
+  (Decisions / Findings / Open questions, each item carrying event-ID
+  evidence + status), fenced by a monotonic round and lead identity (one
+  writer per round; stale/duplicate digests are rejected), and replayable
+  from the digest log (`digests.jsonl`) if `state.json` is lost.
 
 Research mapping and design rationale: `docs/DESIGN.md`. The full eval
 protocol: `docs/EVAL-PLAN.md`.
@@ -75,8 +80,8 @@ Full protocol (fan out → observe → sync round → reconcile-on-conflict):
 | `bulletin_read` | cheap | catch up since a seq (per-agent watermark) |
 | `bulletin_conflicts` | cheap | evidence-tiered symbolic same-ref/different-value check (updates vs conflicts vs superseded) |
 | `bulletin_compact` | cheap | archive old events; keeps the live log lean |
-| `bulletin_resolve` | cheap | record a conflict decision (lead only; optional `supersedes` audit) |
-| `bulletin_sync` | LLM (1/round) | lead compresses everything since last digest |
+| `bulletin_resolve` | cheap | record a conflict decision (lead only; optional `rationale`, `decision_evidence`, `supersedes` audit) |
+| `bulletin_sync` | LLM (1/round) | lead compresses everything since last digest; structured `decisions`/`findings`/`open` with evidence seqs; round-fenced |
 
 ## Development
 

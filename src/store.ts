@@ -64,6 +64,33 @@ export interface DigestState {
   digest: string;
   digestAt: string;
   members: string[];
+  /** Monotonic digest round (fencing epoch, M1). 0 for legacy digests. */
+  round: number;
+  /** Agent identity that wrote the current digest (single writer per round). */
+  lead: string;
+  /** Coverage note (H3): this digest folds in events (coverageFrom, coverageTo]. */
+  coverageFrom: number;
+  coverageTo: number;
+  /** Structured digest sections with event-ID provenance (H3). */
+  decisions: DigestItem[];
+  findings: DigestItem[];
+  open: DigestItem[];
+}
+
+/** One structured digest section item: a decision, finding, or open question. */
+export interface DigestItem {
+  ref: string;
+  text: string;
+  status?: ClaimStatus;
+  evidence?: number[]; // event seqs backing this item (validated against the log)
+}
+
+/** Optional structured digest write (H3/M1): round + sections. */
+export interface PostDigestOptions {
+  round?: number;
+  decisions?: DigestItem[];
+  findings?: DigestItem[];
+  open?: DigestItem[];
 }
 
 export interface BulletinStatus {
@@ -239,25 +266,152 @@ export function readEvents(team: string, opts: { sinceSeq?: number; limit?: numb
   return events;
 }
 
-/** One sync round: agent (lead/summarizer) writes the compressed digest. */
+/**
+ * One sync round: agent (lead/summarizer) writes the compressed digest.
+ *
+ * Fencing (M1): the first digest sets `lead` and `round = 1`; later digests
+ * must come from the same lead and carry a monotonically increasing round
+ * (`opts.round` must equal `state.round + 1`). A stale retry or a non-lead
+ * writer is rejected — double digests for the same round are impossible.
+ *
+ * Provenance (H3): `decisions`/`findings`/`open` may carry `evidence` event
+ * seqs, validated cheaply (positive integers <= the seq high-watermark, a
+ * file read — no LLM). Coverage (`coverageFrom`, `coverageTo`) is derived
+ * from the log, not authored, so a digest cannot misstate what it folds in.
+ */
 export function postDigest(
   team: string,
   from: string,
   digest: string,
   members: string[],
+  opts: PostDigestOptions = {},
 ): { event: BulletinEvent; state: DigestState } {
   const root = bulletinRoot(team);
-  const event = postEvent(team, "digest", from, { digest, replacedSeq: readState(team)?.lastDigestSeq ?? 0 });
+  const prev = readState(team);
+
+  // Fencing: one writer per round. Legacy state (no lead) treats the next
+  // writer as the first lead (backward compatible with pre-0.5.0 teams).
+  if (prev && prev.lead && from !== prev.lead) {
+    throw new Error(`digest rejected: ${from} is not the lead (${prev.lead}) — only the lead writes digests`);
+  }
+  const expectedRound = (prev?.round ?? 0) + 1;
+  const round = opts.round ?? expectedRound;
+  if (round !== expectedRound) {
+    throw new Error(
+      `stale digest round ${round}: current round is ${prev?.round ?? 0}, expected ${expectedRound} — read the bulletin and re-sync as round ${expectedRound}`,
+    );
+  }
+
+  // Coverage + provenance bound: the last event seq at digest time (the new
+  // digest event has not been appended yet).
+  const maxSeq = seqHighWatermark(team);
+  const coverageFrom = prev?.lastDigestSeq ?? 0;
+  const coverageTo = maxSeq;
+  validateEvidence(opts.decisions, maxSeq);
+  validateEvidence(opts.findings, maxSeq);
+  validateEvidence(opts.open, maxSeq);
+
+  const event = postEvent(team, "digest", from, {
+    digest,
+    replacedSeq: prev?.lastDigestSeq ?? 0,
+    round,
+    decisions: opts.decisions ?? [],
+    findings: opts.findings ?? [],
+    open: opts.open ?? [],
+    coverageFrom,
+    coverageTo,
+    members,
+  });
   const state: DigestState = {
     lastDigestSeq: event.seq,
     digest,
     digestAt: event.ts,
     members,
+    round,
+    lead: from,
+    coverageFrom,
+    coverageTo,
+    decisions: opts.decisions ?? [],
+    findings: opts.findings ?? [],
+    open: opts.open ?? [],
   };
   fs.appendFileSync(digestsPath(root), JSON.stringify(event) + "\n", { encoding: "utf8", flag: "a" });
   fsyncFile(digestsPath(root));
   writeFileAtomic(statePath(root), JSON.stringify(state, null, 2) + "\n");
   return { event, state };
+}
+
+/**
+ * Rebuild the latest digest state from `digests.jsonl` (the last digest
+ * event), independent of `state.json`. Used for recovery/audit: the snapshot
+ * is replayable from the log. Legacy digest events (no round/sections) replay
+ * with defaults and never throw.
+ */
+export function replayState(team: string): DigestState | null {
+  const root = bulletinRoot(team);
+  const file = digestsPath(root);
+  if (!fs.existsSync(file)) return null;
+  const lines = fs.readFileSync(file, "utf8").split("\n").filter(Boolean);
+  let last: BulletinEvent | null = null;
+  for (const line of lines) {
+    try {
+      const e = JSON.parse(line) as BulletinEvent;
+      if (e.kind === "digest") last = e;
+    } catch {
+      // skip torn/legacy lines; keep scanning for the last good digest
+    }
+  }
+  if (!last) return null;
+  const d = last.data;
+  return {
+    lastDigestSeq: last.seq,
+    digest: typeof d.digest === "string" ? d.digest : "",
+    digestAt: last.ts,
+    members: Array.isArray(d.members) ? (d.members as string[]) : [],
+    round: typeof d.round === "number" ? d.round : 0,
+    lead: last.from,
+    coverageFrom: typeof d.coverageFrom === "number" ? d.coverageFrom : 0,
+    coverageTo: typeof d.coverageTo === "number" ? d.coverageTo : 0,
+    decisions: Array.isArray(d.decisions) ? (d.decisions as DigestItem[]) : [],
+    findings: Array.isArray(d.findings) ? (d.findings as DigestItem[]) : [],
+    open: Array.isArray(d.open) ? (d.open as DigestItem[]) : [],
+  };
+}
+
+/**
+ * Highest event seq ever written (seq.json high-watermark, which survives
+ * compaction); falls back to the last live event. 0 on an empty team.
+ */
+function seqHighWatermark(team: string): number {
+  const root = bulletinRoot(team);
+  const sp = seqPath(root);
+  if (fs.existsSync(sp)) {
+    try {
+      const s = JSON.parse(fs.readFileSync(sp, "utf8")) as { last: number };
+      return s.last;
+    } catch {
+      // fall through to log-derived seq
+    }
+  }
+  const events = readEvents(team);
+  return events.length ? events[events.length - 1].seq : 0;
+}
+
+/**
+ * Cheap provenance validation (H3): every evidence seq on a digest section
+ * must be a positive integer <= the seq high-watermark. Errors name the bad
+ * seq and ref so the lead can fix and retry. Zero-LLM, pure file state.
+ */
+function validateEvidence(items: DigestItem[] | undefined, maxSeq: number): void {
+  for (const item of items ?? []) {
+    for (const seq of item.evidence ?? []) {
+      if (!Number.isInteger(seq) || seq <= 0 || seq > maxSeq) {
+        throw new Error(
+          `invalid evidence seq ${seq} on ref=${item.ref}: must be a positive integer <= ${maxSeq} (last event seq)`,
+        );
+      }
+    }
+  }
 }
 
 export function readState(team: string): DigestState | null {

@@ -31,14 +31,21 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params: { team_name: string }, _signal, _onUpdate, _ctx) {
       const s = store.status(params.team_name);
-      const text = [
+      const lines = [
         `Bulletin: ${s.team} @ ${s.root}`,
         `events: ${s.eventCount} (last seq ${s.lastSeq})`,
-        s.state
-          ? `last digest: seq ${s.state.lastDigestSeq} at ${s.state.digestAt}\nmembers: ${s.state.members.join(", ")}\n${s.state.digest}`
-          : "no digest yet (first bulletin_sync will create one)",
-      ].join("\n");
-      return { content: [{ type: "text", text }], details: s };
+      ];
+      if (s.state) {
+        lines.push(`last digest: seq ${s.state.lastDigestSeq} at ${s.state.digestAt}`);
+        lines.push(`round ${s.state.round} by ${s.state.lead} (covers ${s.state.coverageFrom}..${s.state.coverageTo})`);
+        lines.push(`members: ${s.state.members.join(", ")}`);
+        if (s.state.decisions.length) lines.push(`decisions: ${s.state.decisions.map((d) => `${d.ref}: ${d.text}`).join("; ")}`);
+        if (s.state.open.length) lines.push(`open: ${s.state.open.map((o) => `${o.ref}: ${o.text}`).join("; ")}`);
+        lines.push(s.state.digest);
+      } else {
+        lines.push("no digest yet (first bulletin_sync will create one)");
+      }
+      return { content: [{ type: "text", text: lines.join("\n") }], details: s };
     },
   });
 
@@ -157,11 +164,13 @@ export default function (pi: ExtensionAPI) {
       decision: Type.String({ description: "The decision (e.g. 'use 8080')." }),
       decision_evidence: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs that motivated this decision (audit)." })),
       supersedes: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs invalidated by this decision (losing claims kept, marked superseded)." })),
+      rationale: Type.Optional(Type.String({ description: "Free-text why this decision was made (audit, folded into the next digest)." })),
     }),
     async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
       const data: Record<string, unknown> = { ref: params.ref, decision: params.decision };
       if (params.decision_evidence) data.decisionEvidence = params.decision_evidence;
       if (params.supersedes) data.supersedes = params.supersedes;
+      if (params.rationale) data.rationale = params.rationale;
       const event = store.postEvent(params.team_name, "resolution", agentName(), data);
       const text = `resolution #${event.seq} recorded for ref=${params.ref}: ${params.decision}`;
       return { content: [{ type: "text", text }], details: event };
@@ -172,11 +181,30 @@ export default function (pi: ExtensionAPI) {
     name: "bulletin_sync",
     label: "Bulletin Sync",
     description:
-      "Run one sync round (LEAD/SUMMARIZER ONLY): compress everything since the last digest into ONE digest entry. This is the single expensive step — one LLM call per round, not per message. After posting, other agents read the digest as their shared picture.",
+      "Run one sync round (LEAD/SUMMARIZER ONLY): compress everything since the last digest into ONE digest entry. This is the single expensive step — one LLM call per round, not per message. After posting, other agents read the digest as their shared picture. The digest can be structured: pass decisions/findings/open with `evidence` event seqs so the snapshot carries provenance. Round is auto-incremented; pass `round` explicitly only on a retry (must equal current round + 1).",
     parameters: Type.Object({
       team_name: Type.String(),
       digest: Type.String({ description: "The compressed summary of what happened since the last digest (max ~500 words)." }),
       members: Type.Optional(Type.Array(Type.String(), { description: "Current member list (recorded for observability)." })),
+      round: Type.Optional(Type.Number({ description: "Expected round = current round + 1 (omit to auto-increment; provide on retry)." })),
+      decisions: Type.Optional(Type.Array(Type.Object({
+        ref: Type.String(),
+        text: Type.String(),
+        status: Type.Optional(Type.Union([Type.Literal("proposed"), Type.Literal("confirmed"), Type.Literal("contested"), Type.Literal("superseded")])),
+        evidence: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs backing this decision." })),
+      }), { description: "Decided items (what won), each with event-ID evidence." })),
+      findings: Type.Optional(Type.Array(Type.Object({
+        ref: Type.String(),
+        text: Type.String(),
+        status: Type.Optional(Type.Union([Type.Literal("proposed"), Type.Literal("confirmed"), Type.Literal("contested"), Type.Literal("superseded")])),
+        evidence: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs backing this finding." })),
+      }), { description: "Findings carried forward, each with claim + status + evidence." })),
+      open: Type.Optional(Type.Array(Type.Object({
+        ref: Type.String(),
+        text: Type.String(),
+        status: Type.Optional(Type.Union([Type.Literal("proposed"), Type.Literal("confirmed"), Type.Literal("contested"), Type.Literal("superseded")])),
+        evidence: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs backing this open question." })),
+      }), { description: "Open questions / minority views — never silently resolved." })),
     }),
     async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
       const { event, state } = store.postDigest(
@@ -184,8 +212,14 @@ export default function (pi: ExtensionAPI) {
         agentName(),
         params.digest,
         params.members ?? [],
+        {
+          round: params.round,
+          decisions: params.decisions,
+          findings: params.findings,
+          open: params.open,
+        },
       );
-      const text = `digest #${event.seq} recorded (lastDigestSeq=${state.lastDigestSeq})`;
+      const text = `digest #${event.seq} recorded (round ${state.round}, lastDigestSeq=${state.lastDigestSeq}, covers ${state.coverageFrom}..${state.coverageTo})`;
       return { content: [{ type: "text", text }], details: { event, state } };
     },
   });

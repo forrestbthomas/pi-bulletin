@@ -201,6 +201,108 @@ describe("durability", () => {
   });
 });
 
+describe("auditable digest rounds (v0.5.0)", () => {
+  it("stores structured sections on the event and in state", () => {
+    store.postEvent("team-a", "signal", "alice", { ref: "port", value: "8080", status: "confirmed" });
+    store.postEvent("team-a", "signal", "bob", { ref: "port", value: "9090", status: "confirmed" });
+    store.postEvent("team-a", "resolution", "lead", { ref: "port", decision: "use 8080", rationale: "8080 is the load balancer default", supersedes: [2] });
+    const { event, state } = store.postDigest("team-a", "lead", "round 1", ["lead", "alice", "bob"], {
+      decisions: [{ ref: "port", text: "use 8080", evidence: [3] }],
+      findings: [{ ref: "api", text: "endpoint moved", status: "confirmed", evidence: [1] }],
+      open: [{ ref: "host", text: "which host wins?" }],
+    });
+    expect(event.data.decisions).toEqual([{ ref: "port", text: "use 8080", evidence: [3] }]);
+    expect(state.decisions).toEqual([{ ref: "port", text: "use 8080", evidence: [3] }]);
+    expect(state.findings[0].status).toBe("confirmed");
+    expect(state.open).toEqual([{ ref: "host", text: "which host wins?" }]);
+  });
+
+  it("derives the coverage note (coverageFrom, coverageTo)", () => {
+    store.postDigest("team-a", "lead", "round 1", ["lead"]); // event seq 1
+    store.postEvent("team-a", "finding", "alice", { ref: "api", claim: "moved" }); // seq 2
+    const { state } = store.postDigest("team-a", "lead", "round 2", ["lead", "alice"]);
+    expect(state.round).toBe(2);
+    expect(state.coverageFrom).toBe(1); // previous digest seq
+    expect(state.coverageTo).toBe(2); // last event seq at digest time
+    // first digest coverage
+    const first = store.replayState("team-a");
+    expect(first?.coverageFrom).toBe(1);
+    expect(first?.coverageTo).toBe(2);
+  });
+
+  it("fences the lead: only the current lead writes digests", () => {
+    store.postDigest("team-a", "alice", "round 1", ["alice"]);
+    expect(() => store.postDigest("team-a", "bob", "round 2", ["bob"])).toThrow(/not the lead/);
+    // the lead can continue
+    const { state } = store.postDigest("team-a", "alice", "round 2", ["alice", "bob"]);
+    expect(state.round).toBe(2);
+  });
+
+  it("fences the round: stale retries are rejected with the expected round", () => {
+    store.postDigest("team-a", "alice", "round 1", ["alice"]);
+    expect(() => store.postDigest("team-a", "alice", "round 1 again", ["alice"], { round: 1 })).toThrow(/stale digest round 1.*expected 2/);
+    // omitted round auto-increments
+    const { state } = store.postDigest("team-a", "alice", "round 2", ["alice"]);
+    expect(state.round).toBe(2);
+  });
+
+  it("validates evidence seqs against the high-watermark (names the bad seq)", () => {
+    store.postEvent("team-a", "finding", "a", { ref: "x", claim: "1" });
+    expect(() =>
+      store.postDigest("team-a", "lead", "bad", ["lead"], { decisions: [{ ref: "x", text: "t", evidence: [9999] }] }),
+    ).toThrow(/invalid evidence seq 9999/);
+    // valid evidence passes
+    const { state } = store.postDigest("team-a", "lead", "good", ["lead"], {
+      findings: [{ ref: "x", text: "t", evidence: [1] }],
+    });
+    expect(state.findings[0].evidence).toEqual([1]);
+  });
+
+  it("replays the latest state from digests.jsonl (survives state.json loss)", () => {
+    store.postDigest("team-a", "alice", "round 1", ["alice"]);
+    store.postDigest("team-a", "alice", "round 2", ["alice", "bob"], {
+      decisions: [{ ref: "port", text: "use 8080" }],
+    });
+    const live = store.readState("team-a");
+    const replayed = store.replayState("team-a");
+    expect(replayed).toEqual(live);
+    // delete state.json -> replay still recovers the same state
+    fs.rmSync(path.join(teamRoot(), "state.json"));
+    const recovered = store.replayState("team-a");
+    expect(recovered).toEqual(live);
+    expect(store.readState("team-a")).toBeNull(); // readState trusts state.json
+  });
+
+  it("legacy digest events replay with defaults (backward compatible)", () => {
+    const root = teamRoot();
+    fs.mkdirSync(root, { recursive: true });
+    const legacy: store.BulletinEvent = {
+      seq: 5,
+      ts: new Date().toISOString(),
+      kind: "digest",
+      from: "lead",
+      data: { digest: "legacy summary", replacedSeq: 0 },
+    };
+    fs.appendFileSync(path.join(root, "digests.jsonl"), JSON.stringify(legacy) + "\n", "utf8");
+    const replayed = store.replayState("team-a");
+    expect(replayed?.digest).toBe("legacy summary");
+    expect(replayed?.round).toBe(0);
+    expect(replayed?.decisions).toEqual([]);
+    expect(replayed?.coverageTo).toBe(0);
+    // 4-arg postDigest on a fresh team still works (first digest sets the lead)
+    const { state } = store.postDigest("team-b", "lead", "round 1", ["lead"]);
+    expect(state.round).toBe(1);
+    expect(state.lead).toBe("lead");
+  });
+
+  it("never calls the network on the digest/fencing path", () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("should not fetch"));
+    store.postDigest("team-a", "lead", "round 1", ["lead"]);
+    store.replayState("team-a");
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe("conflict resolution", () => {
   it("a resolution for a ref suppresses later conflict detection on that ref", () => {
     store.postEvent("team-a", "signal", "alice", { ref: "port", value: "8080" });
