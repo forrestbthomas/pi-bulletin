@@ -15,15 +15,15 @@ a warning to stderr, truncate the file to the last good line, and return
 the good events — never throw.
 
 **Acceptance criteria:**
-- [ ] `readEvents` on a fixture with N valid lines + partial tail returns N
+- [x] `readEvents` on a fixture with N valid lines + partial tail returns N
       events, prints one warning, truncates the file
-- [ ] `writeFileAtomic` never leaves a half-written file at `path` (crash
+- [x] `writeFileAtomic` never leaves a half-written file at `path` (crash
       injection test: failure before rename keeps previous content)
-- [ ] Empty / no-trailing-newline files → no warning, empty result
+- [x] Empty / no-trailing-newline files → no warning, empty result
 
 **Verification:**
-- [ ] `npm test` (new durability tests pass)
-- [ ] `npm run typecheck`
+- [x] `npm test` (new durability tests pass)
+- [x] `npm run typecheck`
 
 **Dependencies:** None
 
@@ -41,14 +41,14 @@ state.json), `markRead` (best-effort fsync watermarks.json), `compact`
 (fsync archive append, then atomic replace of events.jsonl).
 
 **Acceptance criteria:**
-- [ ] Append → fsync order in `postEvent` (spy-verified)
-- [ ] `state.json` written via `writeFileAtomic`
-- [ ] `compact` replaces live log atomically; failure between archive and
+- [x] Append → fsync order in `postEvent` (spy-verified)
+- [x] `state.json` written via `writeFileAtomic`
+- [x] `compact` replaces live log atomically; failure between archive and
       replace leaves original live log intact
 
 **Verification:**
-- [ ] `npm test` (fs-call spies pass)
-- [ ] `npm run typecheck`
+- [x] `npm test` (fs-call spies pass)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 1
 
@@ -64,11 +64,11 @@ atomic state commit crash injection, compaction atomicity, backward
 compatibility with a pre-existing JSONL root, and the seq invariant.
 
 **Acceptance criteria:**
-- [ ] All durability acceptance criteria in the spec covered by tests
-- [ ] Backward-compat test: existing root reads identically before/after
+- [x] All durability acceptance criteria in the spec covered by tests
+- [x] Backward-compat test: existing root reads identically before/after
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** Tasks 1-2
 
@@ -79,9 +79,9 @@ compatibility with a pre-existing JSONL root, and the seq invariant.
 
 ## Checkpoint: Durability
 
-- [ ] Torn-tail fixture recovers with a warning, no throw
-- [ ] Atomic state commit survives crash injection
-- [ ] `npm test` green
+- [x] Torn-tail fixture recovers with a warning, no throw
+- [x] Atomic state commit survives crash injection
+- [x] `npm test` green
 
 ## Phase 2: Conflict supersession (core)
 
@@ -92,12 +92,12 @@ compatibility with a pre-existing JSONL root, and the seq invariant.
 string). Conservative — no stemming or synonyms.
 
 **Acceptance criteria:**
-- [ ] `ref:"API"` ≡ `ref:"api"`; `value:" v2 "` ≡ `value:"v2"`;
+- [x] `ref:"API"` ≡ `ref:"api"`; `value:" v2 "` ≡ `value:"v2"`;
       `value:"42"` ≡ `value:42` (numeric); `"v2"` ≢ `"v2.0"`
-- [ ] Unit tests pin each rule
+- [x] Unit tests pin each rule
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** None
 
@@ -117,16 +117,16 @@ corroboration (distinct authors, same canonical value); honor resolutions
 reported. Extend the output shape additively.
 
 **Acceptance criteria:**
-- [ ] Same-author update → `kind:"update"`, no tier
-- [ ] Cross-author divergence → correct tier (soft/medium/hard)
-- [ ] Corroboration increments evidenceCount, no conflict
-- [ ] Resolution stops re-flagging; losing seq marked `superseded`
-- [ ] Tiebreak on ties only; conflict still reported on ties
-- [ ] Legacy events (no status) → treated as `proposed`; no throw
+- [x] Same-author update → `kind:"update"`, no tier
+- [x] Cross-author divergence → correct tier (soft/medium/hard)
+- [x] Corroboration increments evidenceCount, no conflict
+- [x] Resolution stops re-flagging; losing seq marked `superseded`
+- [x] Tiebreak on ties only; conflict still reported on ties
+- [x] Legacy events (no status) → treated as `proposed`; no throw
 
 **Verification:**
-- [ ] `npm test` (all conflict scenarios)
-- [ ] `npm run typecheck`
+- [x] `npm test` (all conflict scenarios)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 4
 
@@ -144,13 +144,13 @@ reported. Extend the output shape additively.
 Invalid status → tool error, no event written.
 
 **Acceptance criteria:**
-- [ ] Status validated; invalid rejected before write
-- [ ] `bulletin_conflicts` returns the richer shape with defaults for
+- [x] Status validated; invalid rejected before write
+- [x] `bulletin_conflicts` returns the richer shape with defaults for
       legacy events
 
 **Verification:**
-- [ ] `npm test` (extension tests)
-- [ ] `npm run typecheck`
+- [x] `npm test` (extension tests)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 5
 
@@ -168,11 +168,11 @@ audit, tiebreak, backward compat, zero-LLM guard (no network calls in the
 conflict path).
 
 **Acceptance criteria:**
-- [ ] All spec acceptance criteria covered by tests
-- [ ] Zero-LLM guard test present
+- [x] All spec acceptance criteria covered by tests
+- [x] Zero-LLM guard test present
 
 **Verification:**
-- [ ] `npm test`
+- [x] `npm test`
 
 **Dependencies:** Tasks 5-6
 
@@ -184,9 +184,9 @@ conflict path).
 
 ## Checkpoint: Conflicts
 
-- [ ] Dedupe FP removed; update not a conflict; tiers correct
-- [ ] Resolution stops re-flagging; losing claim preserved
-- [ ] `npm test` + `npm run typecheck` green
+- [x] Dedupe FP removed; update not a conflict; tiers correct
+- [x] Resolution stops re-flagging; losing claim preserved
+- [x] `npm test` + `npm run typecheck` green
 
 ## Phase 3: Polish
 
@@ -199,12 +199,12 @@ conflict path).
 mention of the durability guarantees.
 
 **Acceptance criteria:**
-- [ ] Status vocabulary documented
-- [ ] Conflict-reading guidance documented
-- [ ] README notes durability guarantees
+- [x] Status vocabulary documented
+- [x] Conflict-reading guidance documented
+- [x] README notes durability guarantees
 
 **Verification:**
-- [ ] Docs read cleanly
+- [x] Docs read cleanly
 
 **Dependencies:** Tasks 5-6
 
@@ -221,13 +221,13 @@ on one ref; run `bulletin_conflicts` (verify tier + authors); resolve;
 re-scan clean; confirm losing claim still visible in `events.jsonl`.
 
 **Acceptance criteria:**
-- [ ] Conflict surfaced with correct tier and authors
-- [ ] After resolve, re-scan is clean and the losing claim is still in the
+- [x] Conflict surfaced with correct tier and authors
+- [x] After resolve, re-scan is clean and the losing claim is still in the
       log
-- [ ] No LLM calls on the conflict path (observe tool calls)
+- [x] No LLM calls on the conflict path (observe tool calls)
 
 **Verification:**
-- [ ] Observed in a live dryrun
+- [x] Observed in a live dryrun
 
 **Dependencies:** Tasks 6-8
 
@@ -240,13 +240,13 @@ re-scan clean; confirm losing claim still visible in `events.jsonl`.
 **Description:** Run the complete verification set for both specs.
 
 **Acceptance criteria:**
-- [ ] All spec acceptance criteria met
-- [ ] Repo ready for review / commit / tag
+- [x] All spec acceptance criteria met
+- [x] Repo ready for review / commit / tag
 
 **Verification:**
-- [ ] `npm test`
-- [ ] `npm run typecheck`
-- [ ] Python watchdog tests still pass (`python3
+- [x] `npm test`
+- [x] `npm run typecheck`
+- [x] Python watchdog tests still pass (`python3
       scripts/test_bulletin_watchdog.py`)
 
 **Dependencies:** Task 9
@@ -257,5 +257,5 @@ re-scan clean; confirm losing claim still visible in `events.jsonl`.
 
 ## Checkpoint: Complete
 
-- [ ] All acceptance criteria in both specs met
-- [ ] Ready for review / commit / tag
+- [x] All acceptance criteria in both specs met
+- [x] Ready for review / commit / tag

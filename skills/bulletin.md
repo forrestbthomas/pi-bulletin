@@ -82,6 +82,22 @@ Other agents now read the digest as their shared picture. A digest is a
   ref, and the decision is folded into the next digest. If a conflict is
   material (changes someone's in-flight work), post a `signal` with the
   resolved `value` so the checker tracks the new baseline.
+- **Evidence status**: when you post a `signal`/`finding`, you may attach
+  `status` — `proposed` (default: an unconfirmed claim), `confirmed`
+  (verified or corroborated), `contested` (in dispute), `superseded`
+  (audit-only, not a live claim). The cheap checker uses these tiers: a
+  confirmed claim beats a proposed one, and corroboration (≥2 agents posting
+  the same canonical value) counts as confirmed automatically.
+- **Reading `bulletin_conflicts` output**: cross-author divergent values are
+  reported with a tier — `hard` (both sides confirmed; needs a decision),
+  `medium` (one side confirmed), `soft` (both unconfirmed; often resolved by
+  one more observation). Same-author later values appear as `update`, not
+  conflict. A `superseded` line is an audit marker — the losing claim is
+  kept in the log for the record, not deleted. Resolve cheap conflicts in
+  the digest text; escalate `hard` ties explicitly.
+- **Never silently erase a claim**: if a resolution invalidates a specific
+  event, pass `supersedes=[<seq>]` to `bulletin_resolve` so the losing claim
+  is preserved and marked, and future scans show the audit trail.
 
 ## Rules
 

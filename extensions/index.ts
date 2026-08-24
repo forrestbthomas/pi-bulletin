@@ -46,7 +46,7 @@ export default function (pi: ExtensionAPI) {
     name: "bulletin_post",
     label: "Bulletin Post",
     description:
-      "Post a finding to the shared bulletin. CHEAP: no other agent is notified or interrupted; they observe by reading. Prefer structured data with a `ref` (topic/file) so conflict detection can key on it.",
+      "Post a finding to the shared bulletin. CHEAP: no other agent is notified or interrupted; they observe by reading. Prefer structured data with a `ref` (topic/file) so conflict detection can key on it. Optional `status` sets the claim's evidence tier: proposed (default), confirmed, contested, superseded (audit-only).",
     parameters: Type.Object({
       team_name: Type.String(),
       kind: Type.Optional(Type.Union([Type.Literal("finding"), Type.Literal("signal"), Type.Literal("message")], { default: "finding" })),
@@ -54,6 +54,12 @@ export default function (pi: ExtensionAPI) {
       claim: Type.Optional(Type.String({ description: "The finding/claim/observation itself." })),
       value: Type.Optional(Type.String({ description: "For kind=signal: a compact structured value (e.g. 'claimed', 'sha:abc123')." })),
       to: Type.Optional(Type.String({ description: "For kind=message: recipient agent name. Prefer findings over directed messages." })),
+      status: Type.Optional(Type.Union([
+        Type.Literal("proposed"),
+        Type.Literal("confirmed"),
+        Type.Literal("contested"),
+        Type.Literal("superseded"),
+      ], { description: "Evidence status of this claim. Confirmed = verified/corroborated; contested = in dispute; superseded = audit-only (not a live claim)." })),
     }),
     async execute(_toolCallId, params: any, _signal, _onUpdate, ctx) {
       const kind = params.kind || "finding";
@@ -62,6 +68,7 @@ export default function (pi: ExtensionAPI) {
       if (params.claim) data.claim = params.claim;
       if (params.value) data.value = params.value;
       if (params.to) data.to = params.to;
+      if (params.status) data.status = params.status;
       const event = store.postEvent(params.team_name, kind, agentName(), data);
       const text = `posted ${kind} #${event.seq} (${event.from})`;
       return { content: [{ type: "text", text }], details: event };
@@ -100,7 +107,7 @@ export default function (pi: ExtensionAPI) {
     name: "bulletin_conflicts",
     label: "Bulletin Conflicts",
     description:
-      "CHEAP symbolic conflict check: signal events since `since_seq` with the same ref but different values. Use before deciding whether a sync round needs LLM reconciliation.",
+      "CHEAP symbolic conflict check: signal events since `since_seq` on the same ref with different values, evidence-tiered (hard/medium/soft). Same-author later values are updates (not conflicts); superseded claims appear as audit markers. Use before deciding whether a sync round needs LLM reconciliation.",
     parameters: Type.Object({
       team_name: Type.String(),
       since_seq: Type.Number({ description: "Check events after this seq (typically the last digest seq)." }),
@@ -108,7 +115,14 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
       const conflicts = store.findConflictsSince(params.team_name, params.since_seq);
       const text = conflicts.length
-        ? conflicts.map((c) => `conflict ref=${c.ref}: ${JSON.stringify(c.a)} (seq ${c.seqs[0]}) vs ${JSON.stringify(c.b)} (seq ${c.seqs[1]})`).join("\n")
+        ? conflicts.map((c) => {
+            if (c.kind === "superseded") {
+              return `superseded ref=${c.ref}: seq ${c.seqs[0]} (${JSON.stringify(c.a)}) superseded by resolution ${c.seqs[1]}`;
+            }
+            const tier = c.tier ? ` [${c.tier}]` : "";
+            const authors = c.authors ? ` (${c.authors.join(" vs ")})` : "";
+            return `${c.kind === "update" ? "update" : "conflict"} ref=${c.ref}${tier}${authors}: ${JSON.stringify(c.a)} (seq ${c.seqs[0]}) vs ${JSON.stringify(c.b)} (seq ${c.seqs[1]})`;
+          }).join("\n")
         : "no conflicts detected";
       return { content: [{ type: "text", text }], details: { conflicts } };
     },
@@ -136,17 +150,19 @@ export default function (pi: ExtensionAPI) {
     name: "bulletin_resolve",
     label: "Bulletin Resolve",
     description:
-      "Record a conflict resolution for a ref (LEAD ONLY). Cheap: posts a resolution event; the symbolic conflict checker stops flagging that ref. The decision is folded into the next digest.",
+      "Record a conflict resolution for a ref (LEAD ONLY). Cheap: posts a resolution event; the symbolic conflict checker stops flagging that ref. The decision is folded into the next digest. Optional `supersedes` lists the event seqs this decision invalidates (losing claims are kept in the log and shown as superseded audit markers).",
     parameters: Type.Object({
       team_name: Type.String(),
       ref: Type.String({ description: "The ref (topic) being resolved." }),
       decision: Type.String({ description: "The decision (e.g. 'use 8080')." }),
+      decision_evidence: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs that motivated this decision (audit)." })),
+      supersedes: Type.Optional(Type.Array(Type.Number(), { description: "Event seqs invalidated by this decision (losing claims kept, marked superseded)." })),
     }),
     async execute(_toolCallId, params: any, _signal, _onUpdate, _ctx) {
-      const event = store.postEvent(params.team_name, "resolution", agentName(), {
-        ref: params.ref,
-        decision: params.decision,
-      });
+      const data: Record<string, unknown> = { ref: params.ref, decision: params.decision };
+      if (params.decision_evidence) data.decisionEvidence = params.decision_evidence;
+      if (params.supersedes) data.supersedes = params.supersedes;
+      const event = store.postEvent(params.team_name, "resolution", agentName(), data);
       const text = `resolution #${event.seq} recorded for ref=${params.ref}: ${params.decision}`;
       return { content: [{ type: "text", text }], details: event };
     },

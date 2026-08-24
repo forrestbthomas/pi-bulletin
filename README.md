@@ -31,6 +31,13 @@ pi-teams on a 5-agent read-only review task: the bulletin leg completed
 - **Decoupled from agent lifecycle:** agents are ordinary Pi sessions
   sharing a file. A slow or stuck agent doesn't wedge the team — others
   proceed and it catches up by reading the digest.
+- **Durable and honest:** appends are fsync'd before acknowledgement and
+  snapshots are written atomically (temp + rename), so a crash mid-write
+  cannot corrupt the bulletin — a torn tail is detected and truncated on the
+  next read. Conflicts are evidence-tiered (proposed/confirmed/contested),
+  same-author corrections are updates not conflicts, and a resolved losing
+  claim is kept in the log as a superseded audit marker — never silently
+  erased.
 
 Research mapping and design rationale: `docs/DESIGN.md`. The full eval
 protocol: `docs/EVAL-PLAN.md`.
@@ -64,11 +71,11 @@ Full protocol (fan out → observe → sync round → reconcile-on-conflict):
 | Tool | Cost | Purpose |
 |---|---|---|
 | `bulletin_status` | cheap | team root, event count, last digest |
-| `bulletin_post` | cheap | post a finding/signal (structured `ref` + `claim`) |
+| `bulletin_post` | cheap | post a finding/signal (structured `ref` + `claim`, optional `status` tier) |
 | `bulletin_read` | cheap | catch up since a seq (per-agent watermark) |
-| `bulletin_conflicts` | cheap | symbolic same-ref/different-value check |
+| `bulletin_conflicts` | cheap | evidence-tiered symbolic same-ref/different-value check (updates vs conflicts vs superseded) |
 | `bulletin_compact` | cheap | archive old events; keeps the live log lean |
-| `bulletin_resolve` | cheap | record a conflict decision (lead only) |
+| `bulletin_resolve` | cheap | record a conflict decision (lead only; optional `supersedes` audit) |
 | `bulletin_sync` | LLM (1/round) | lead compresses everything since last digest |
 
 ## Development
