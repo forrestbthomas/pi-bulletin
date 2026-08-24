@@ -6,6 +6,38 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-24
+
+### Added
+
+- **Evidence-tiered conflict detection**: `bulletin_conflicts` now reports
+  hard/medium/soft tiers, distinguishes same-author corrections (updates)
+  from cross-author conflicts, and compares canonicalized values (ref
+  case/whitespace, numeric strings) so cosmetic differences no longer look
+  like conflicts. `bulletin_post` accepts an optional `status`
+  (proposed/confirmed/contested/superseded); corroboration — two or more
+  agents posting the same canonical value — counts as confirmed.
+- **Durability**: appends are fsync'd before acknowledgement and snapshots
+  (`state.json`, watermarks, the post-compaction live log) are written
+  atomically (temp + rename), so a crash mid-write cannot corrupt the
+  bulletin. A torn tail (crash mid-append) is detected and truncated on the
+  next read instead of breaking every subsequent read.
+- `bulletin_resolve` accepts `decision_evidence` and `supersedes`; a
+  resolution that supersedes specific events preserves the losing claims in
+  the log and surfaces them as audit markers instead of silently erasing
+  them.
+
+### Changed
+
+- `bulletin_conflicts` returns a richer shape (tier, authors, kind, status)
+  alongside the existing ref/value/seq fields; output stays additive and
+  backward compatible.
+
+### Fixed
+
+- A crash mid-append no longer breaks every subsequent read of the bulletin
+  (torn-tail recovery in `readEvents`).
+
 ## [0.3.0] - 2026-08-23
 
 ### Added
