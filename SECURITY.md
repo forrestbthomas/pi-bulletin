@@ -8,7 +8,8 @@ release entry.**
 
 | Version | Supported          |
 | ------- | ------------------ |
-| v0.2.x  | ✅ Active          |
+| v0.3.x  | ✅ Active          |
+| v0.2.x  | ⚠️ Maintenance     |
 | < 0.2   | ❌ Not supported    |
 
 ## Reporting a Vulnerability

@@ -75,9 +75,9 @@ CI runs all three test commands; make sure they pass locally before pushing.
 
 ## Known state (2026-08-23)
 
-- v0.2.0 published to npm. Watchdog (PR #2) merged on `main` but unreleased —
-  the next cut is **0.3.0** (bump `package.json`, CHANGELOG entry, tag from
-  merged main tip).
+- v0.3.0 cut (watchdog + OSS maturity) — merged, tag/release pending. The
+  next release is cut by tagging the merged main tip (`git tag -a vX.Y.Z`)
+  after confirming the `NPM_TOKEN` secret exists.
 - Open issues: none (issue #1 closed after the watchdog landed).
 - Eval evidence lives in `eval-output/`; protocol and results in
   `docs/EVAL-PLAN.md`.
