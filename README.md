@@ -51,6 +51,23 @@ pi install file:/path/to/pi-bulletin
 Then use the protocol in `skills/bulletin.md`: fan out → observe → sync
 round → reconcile-on-conflict.
 
+## Watchdog (lead-stall detection)
+
+`scripts/start-team.py` runs a watchdog while the team is attached (on by
+default): it polls the bulletin every `--watchdog-interval` seconds (20) and
+nudges the lead pane when the lead shows the stall signature from issue #1 —
+idle ≥ `--watchdog-idle-min` minutes (5) with unread non-lead bulletin
+events. The nudge is a tmux send-keys into the lead's session telling it to
+`bulletin_read` (the same mechanism a human used to un-stall the first
+dogfood run). Nudges are debounced by `--watchdog-nudge-min` (default =
+idle-min) and stop as soon as the lead reads. The watchdog is pure file I/O
+and never writes to the bulletin; its audit trail is `watchdog.log` in the
+capture dir. Disable with `--no-watchdog`.
+
+```bash
+./start-team.py --team my-team --watchdog-idle-min 3 --watchdog-nudge-min 2
+```
+
 ## Development
 
 ```bash

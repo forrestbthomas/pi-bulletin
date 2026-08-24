@@ -9,10 +9,15 @@ Usage:
     ./start-team.py --team <name> [--target <path>] [--roles a,b,c]
                     [--task-file <path>] [--launch "<pi-run chat ...>"]
                     [--root <dir>] [--capture-dir <dir>] [--dryrun]
+                    [--watchdog-idle-min N] [--watchdog-interval S]
+                    [--watchdog-nudge-min N] [--no-watchdog]
 
 Defaults: 5 roles (lead-synthesizer + 4 analysts), the read-only parallel
 review task, launch = `pi-run chat` (add --provider/--model via --launch),
-capture into <cwd>/bulletin-runs/<team>-<ts>.
+capture into <cwd>/bulletin-runs/<team>-<ts>. A watchdog (on by default)
+polls the bulletin while attached and nudges the lead pane when it is idle
+>= N minutes with unread bulletin events — the stall signature from issue
+#1; disable with --no-watchdog.
 
 Env: tmux + pi-run on PATH; BW_SESSION set when pi-run needs secret-manager
 key resolution. Python 3 stdlib only.
@@ -24,8 +29,11 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
+
+from bulletin_watchdog import stall_signature
 
 ROLES = ["lead-synthesizer", "bug-hunter", "complexity-analyst",
          "security-spotter", "devil-advocate"]
@@ -99,6 +107,52 @@ def show_pane_tail(out, n=30):
 def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
+
+def watchdog_loop(session, lead, bulletin_root, idle_min, interval_s, nudge_min,
+                  stop_event, capture_dir=None):
+    """Poll the bulletin root; nudge the lead pane when it is stalled.
+
+    Stall = unread non-lead events AND lead idle >= idle_min (see
+    bulletin_watchdog.stall_signature). Nudges are debounced to at most one
+    per nudge_min minutes, guarded by session liveness, and NEVER write to
+    the bulletin — the audit trail is stdout + watchdog.log in the capture
+    dir. Runs as a daemon thread while the launcher is attached.
+    """
+    last_nudge = 0.0
+    nudge_count = 0
+    log_path = (Path(capture_dir) / "watchdog.log") if capture_dir else None
+    while not stop_event.is_set():
+        if not pane_exists(session):
+            return  # team gone — nothing left to watch
+        try:
+            sig = stall_signature(str(bulletin_root), lead, idle_min)
+        except Exception as e:  # watchdog must never kill the launcher
+            log(f"WATCHDOG: detection error: {e}")
+            stop_event.wait(interval_s)
+            continue
+        if sig["stall"]:
+            now = time.monotonic()
+            if now - last_nudge >= nudge_min * 60:
+                text = (f"⚠ watchdog: {sig['unread_count']} unread bulletin event(s), "
+                        f"lead idle {sig['lead_idle_min']:.0f}m. Do NOT wait for direct "
+                        "messages — run bulletin_read now to collect teammates' findings, "
+                        "then bulletin_conflicts + bulletin_sync at round end.")
+                try:
+                    tmux(["send-keys", "-t", f"{session}.0", text, "Enter"], capture=True)
+                except RuntimeError as e:
+                    log(f"WATCHDOG: send-keys failed (pane gone?): {e}")
+                    return
+                nudge_count += 1
+                last_nudge = now
+                log(f"WATCHDOG: nudged lead ({sig['unread_count']} unread, idle {sig['lead_idle_min']:.0f}m, nudge #{nudge_count})")
+                if log_path:
+                    with log_path.open("a", encoding="utf8") as f:
+                        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} nudge #{nudge_count}: "
+                                f"lead idle {sig['lead_idle_min']:.0f}m, "
+                                f"{sig['unread_count']} unread event(s)\n")
+        stop_event.wait(interval_s)
+
+
 def die(msg):
     print(f"ERROR: {msg}", file=sys.stderr, flush=True)
     sys.exit(1)
@@ -114,6 +168,14 @@ def main():
     ap.add_argument("--root", default=None, help="working dir for the panes (default: cwd)")
     ap.add_argument("--capture-dir", default=None, help="where to capture sessions/bulletin (default: <cwd>/bulletin-runs)")
     ap.add_argument("--dryrun", action="store_true", help="2 roles + trivial task (smoke)")
+    ap.add_argument("--watchdog-idle-min", type=float, default=5.0,
+                    help="stall threshold: nudge the lead when idle >= N min with unread bulletin events (default 5)")
+    ap.add_argument("--watchdog-interval", type=float, default=20,
+                    help="watchdog poll interval in seconds (default 20)")
+    ap.add_argument("--watchdog-nudge-min", type=float, default=None,
+                    help="min minutes between lead nudges (default: same as --watchdog-idle-min)")
+    ap.add_argument("--no-watchdog", action="store_true",
+                    help="disable the lead-stall watchdog (default: enabled)")
     args = ap.parse_args()
 
     session = args.team
@@ -185,8 +247,27 @@ def main():
                 f"Team name: {session}. Review the target at {target} (read-only). Post "
                 "findings with bulletin_post(kind=finding, ref=topic, claim=one-liner).\n" + task
             ))
-    log(f"{len(roles)} panes launched. Attaching — watch the team; detach with Ctrl-b d when done.")
+    # Watchdog: nudge a stalled lead while we are attached. Daemon thread so
+    # Ctrl-b d (detach) tears it down with the launcher.
+    watchdog = None
+    stop_event = threading.Event()
+    if not args.no_watchdog:
+        nudge_min = args.watchdog_nudge_min if args.watchdog_nudge_min is not None else args.watchdog_idle_min
+        watchdog = threading.Thread(
+            target=watchdog_loop,
+            args=(session, roles[0], bulletin_root, args.watchdog_idle_min,
+                  args.watchdog_interval, nudge_min, stop_event, capture_dir),
+            daemon=True,
+        )
+        watchdog.start()
+        log(f"watchdog on: lead={roles[0]} idle>={args.watchdog_idle_min:g}m with unread events "
+            f"(poll {args.watchdog_interval:g}s, nudge cooldown {nudge_min:g}m)")
+    log("Attaching — watch the team; detach with Ctrl-b d when done.")
     tmux(["attach", "-t", session], timeout=None)
+
+    stop_event.set()
+    if watchdog:
+        watchdog.join(timeout=2)
 
     # capture after detach
     r = tmux(["capture-pane", "-p", "-t", session, "-S", "-2000"], capture=True)
