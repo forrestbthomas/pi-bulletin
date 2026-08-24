@@ -1,15 +1,21 @@
-name: ci
+name: CI
+
+permissions:
+  contents: read
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      # actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -18,3 +24,20 @@ jobs:
       - run: npm run typecheck
       - name: watchdog python tests
         run: python3 scripts/test_bulletin_watchdog.py
+
+  secret-scan:
+    # Defense in depth on top of the maintainer-machine pre-push hook: a
+    # leaked secret must never reach the default branch even if a client-side
+    # hook is bypassed or the contributor has no hook installed.
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout@v7 — full history so gitleaks can resolve its
+      # base-commit diff on a fresh clone.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        # gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
