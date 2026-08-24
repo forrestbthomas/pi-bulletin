@@ -16,3 +16,5 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run typecheck
+      - name: watchdog python tests
+        run: python3 scripts/test_bulletin_watchdog.py

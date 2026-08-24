@@ -101,6 +101,21 @@ Other agents now read the digest as their shared picture. A digest is a
   your question, continue on work that isn't blocked, and check the next
   digest. Do not message-spam.
 
+## Watchdog
+
+`scripts/start-team.py` runs a watchdog while a team is attached: if the
+lead is idle ≥ N minutes (default 5) with unread bulletin events, it
+injects a nudge into the lead's session telling it to `bulletin_read`.
+
+- If you see the watchdog message, it is a *protocol reminder*, not a human
+  command: run `bulletin_read` now, then `bulletin_conflicts` +
+  `bulletin_sync` at round end. Never respond by asking teammates to send
+  you anything — they never message the lead directly.
+- The watchdog never writes to the bulletin; its audit trail is
+  `watchdog.log` in the run's capture dir. Disable with `--no-watchdog`;
+  tune with `--watchdog-idle-min`, `--watchdog-interval`,
+  `--watchdog-nudge-min`.
+
 ## Example session (research task, 3 agents)
 
 1. lead: `bulletin_status` → root confirmed.
