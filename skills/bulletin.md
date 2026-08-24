@@ -66,10 +66,30 @@ When a round of parallel work is done (or you have a natural checkpoint):
    words): what was found, what changed, what is decided, what is open. Fold
    in any conflict resolutions (if a conflict is cheap to resolve, resolve it
    in the digest text; if it needs investigation, say so explicitly).
-5. `bulletin_sync(team_name, digest=<your summary>, members=[...])`.
+5. **Structure the digest** (v0.5.0, auditable rounds): pass `decisions`,
+   `findings`, and `open` alongside the prose `digest`, and attach `evidence`
+   event seqs to each item so the snapshot carries provenance back to the
+   log. Rules:
+   - `decisions` — what won, each with the resolution event seq(s) as
+     `evidence`.
+   - `findings` — claims carried forward, with `status` and their event
+     seq(s).
+   - `open` — open questions and **minority/contested views**; never
+     silently resolve a contested item — put it here explicitly.
+   - The store validates evidence seqs cheaply; if a seq is wrong the sync
+     errors and you fix it before retrying.
+6. `bulletin_sync(team_name, digest=<your summary>, members=[...],
+   decisions=[...], findings=[...], open=[...])`.
 
 Other agents now read the digest as their shared picture. A digest is a
 *snapshot*, not a command — teammates decide whether it changes their work.
+
+**Fencing (v0.5.0):** one writer per round. Only the current lead can sync,
+and each digest advances a monotonic `round` — a stale retry or a duplicate
+sync for the same round is rejected by the store (read the error, then
+re-sync as the next round). `bulletin_status` shows the current round, lead,
+and coverage (`coverageFrom..coverageTo` = which events the last digest
+folded in).
 
 ### 5. Reconcile (only on conflict)
 
@@ -78,9 +98,10 @@ Other agents now read the digest as their shared picture. A digest is a
   one resolver (usually the lead) decides, records the decision, and the team
   moves on.
 - **Record the decision**: `bulletin_resolve(team_name, ref=<topic>,
-  decision=<choice>)` (LEAD ONLY). The symbolic checker stops flagging that
-  ref, and the decision is folded into the next digest. If a conflict is
-  material (changes someone's in-flight work), post a `signal` with the
+  decision=<choice>, rationale=<why>)` (LEAD ONLY). The symbolic checker
+  stops flagging that ref, and the decision (with its rationale and evidence
+  seqs) is folded into the next digest's `decisions` section. If a conflict
+  is material (changes someone's in-flight work), post a `signal` with the
   resolved `value` so the checker tracks the new baseline.
 - **Evidence status**: when you post a `signal`/`finding`, you may attach
   `status` — `proposed` (default: an unconfirmed claim), `confirmed`

@@ -90,4 +90,50 @@ describe("pi-bulletin extension", () => {
     expect(resolution?.data.decisionEvidence).toEqual([1]);
     expect(resolution?.data.supersedes).toEqual([2]);
   });
+
+  it("bulletin_resolve stores an optional rationale", async () => {
+    const pi = fakePi() as any;
+    extension(pi);
+    await callTool(pi, "bulletin_resolve", {
+      team_name: "team-x",
+      ref: "port",
+      decision: "use 8080",
+      rationale: "8080 is the load balancer default",
+    });
+    const events = store.readEvents("team-x");
+    const resolution = events.find((e) => e.kind === "resolution");
+    expect(resolution?.data.rationale).toBe("8080 is the load balancer default");
+  });
+
+  it("bulletin_sync stores structured sections and round", async () => {
+    const pi = fakePi() as any;
+    extension(pi);
+    await callTool(pi, "bulletin_post", { team_name: "team-x", kind: "signal", ref: "port", value: "8080" });
+    const res = await callTool(pi, "bulletin_sync", {
+      team_name: "team-x",
+      digest: "round 1 summary",
+      members: ["lead", "tester"],
+      decisions: [{ ref: "port", text: "use 8080", evidence: [1] }],
+      findings: [{ ref: "api", text: "moved", status: "confirmed" }],
+      open: [{ ref: "host", text: "which host?" }],
+    });
+    const state = res.details.state;
+    expect(state.round).toBe(1);
+    expect(state.lead).toBe("tester");
+    expect(state.decisions).toEqual([{ ref: "port", text: "use 8080", evidence: [1] }]);
+    expect(state.findings[0].status).toBe("confirmed");
+    expect(state.open).toEqual([{ ref: "host", text: "which host?" }]);
+    // status shows round/lead/coverage
+    const statusRes = await callTool(pi, "bulletin_status", { team_name: "team-x" });
+    expect(statusRes.content[0].text).toContain("round 1");
+    expect(statusRes.content[0].text).toContain("by tester");
+  });
+
+  it("bulletin_sync surfaces fencing errors (stale round)", async () => {
+    const pi = fakePi() as any;
+    extension(pi);
+    await callTool(pi, "bulletin_sync", { team_name: "team-x", digest: "round 1", members: ["tester"] });
+    const err = await callTool(pi, "bulletin_sync", { team_name: "team-x", digest: "round 1 dup", members: ["tester"], round: 1 }).catch((e: Error) => e);
+    expect(String(err)).toMatch(/stale digest round 1.*expected 2/);
+  });
 });
